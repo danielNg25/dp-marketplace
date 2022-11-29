@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="5.750" tests="8" failures="0">
+  <testsuite name="Root Suite" timestamp="2022-11-29T09:15:54" tests="0" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Marketplace" timestamp="2022-11-29T09:15:54" tests="0" file="C:\Users\ndtr2\Documents\Workstation\VAR\Code\DPMarketPlace\tests\marketplace.test.ts" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="createToken" timestamp="2022-11-29T09:15:54" tests="1" file="C:\Users\ndtr2\Documents\Workstation\VAR\Code\DPMarketPlace\tests\marketplace.test.ts" time="3.522" failures="0">
+    <testcase name="Marketplace createToken Should createToken successfully" time="0.092" classname="Should createToken successfully">
+    </testcase>
+  </testsuite>
+  <testsuite name="createMarketSale first time - initialList: true" timestamp="2022-11-29T09:15:58" tests="2" file="C:\Users\ndtr2\Documents\Workstation\VAR\Code\DPMarketPlace\tests\marketplace.test.ts" time="0.606" failures="0">
+    <testcase name="Marketplace createMarketSale first time - initialList: true Should createMarketSale first time successfully - withPhysical: true" time="0.151" classname="Should createMarketSale first time successfully - withPhysical: true">
+    </testcase>
+    <testcase name="Marketplace createMarketSale first time - initialList: true Should createMarketSale first time successfully - withPhysical: false" time="0.127" classname="Should createMarketSale first time successfully - withPhysical: false">
+    </testcase>
+  </testsuite>
+  <testsuite name="resellToken" timestamp="2022-11-29T09:15:58" tests="2" file="C:\Users\ndtr2\Documents\Workstation\VAR\Code\DPMarketPlace\tests\marketplace.test.ts" time="0.549" failures="0">
+    <testcase name="Marketplace resellToken Should resellToken successfully" time="0.033" classname="Should resellToken successfully">
+    </testcase>
+    <testcase name="Marketplace resellToken Should resellToken - unlist successfully" time="0.057" classname="Should resellToken - unlist successfully">
+    </testcase>
+  </testsuite>
+  <testsuite name="createMarketSale after resell - initialList: false - isCustodianWallet: true" timestamp="2022-11-29T09:15:59" tests="2" file="C:\Users\ndtr2\Documents\Workstation\VAR\Code\DPMarketPlace\tests\marketplace.test.ts" time="0.711" failures="0">
+    <testcase name="Marketplace createMarketSale after resell - initialList: false - isCustodianWallet: true Should createMarketSale after resell successfully" time="0.074" classname="Should createMarketSale after resell successfully">
+    </testcase>
+    <testcase name="Marketplace createMarketSale after resell - initialList: false - isCustodianWallet: true Should createMarketSale after resell successfully - royalty percent &lt; 2" time="0.155" classname="Should createMarketSale after resell successfully - royalty percent &lt; 2">
+    </testcase>
+  </testsuite>
+  <testsuite name="createMarketSale after resell - initialList: false - isCustodianWallet: false" timestamp="2022-11-29T09:15:59" tests="1" file="C:\Users\ndtr2\Documents\Workstation\VAR\Code\DPMarketPlace\tests\marketplace.test.ts" time="0.352" failures="0">
+    <testcase name="Marketplace createMarketSale after resell - initialList: false - isCustodianWallet: false Should createMarketSale after resell successfully" time="0.081" classname="Should createMarketSale after resell successfully">
+    </testcase>
+  </testsuite>
+</testsuites>
