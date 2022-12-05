@@ -1,6 +1,6 @@
 # Compile
 
-``yarn add`
+`yarn`
 to install dependencies
 
 `npx hardhat compile`
