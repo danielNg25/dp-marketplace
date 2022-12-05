@@ -2,16 +2,18 @@
 pragma solidity ^0.8.4;
 
 import "./libraries/PriceConverterTest.sol";
+import "./DPNFT.sol";
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract DPMarketplaceC1 is ERC721URIStorage, ReentrancyGuard {
+contract DPMarketplaceC1 is ReentrancyGuard {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
     Counters.Counter private _itemsSold;
+	
+	DPNFT public NFT;
 
     uint256 listingPrice = 0.00001 ether;
     uint256 listingPriceSecondary = 0.0001 ether;
@@ -56,11 +58,12 @@ contract DPMarketplaceC1 is ERC721URIStorage, ReentrancyGuard {
       bool sold
     );
 
-    constructor(address contractOwner_, address charity_, address web3re_) ERC721("GoyaCoin", "GOYA") {
+    constructor(address contractOwner_, address charity_, address web3re_, address NFTAddress_) {
       contractOwner = contractOwner_;
       charity = charity_;
       web3re = web3re_;
       owner = payable(contractOwner_);
+	  NFT = DPNFT(NFTAddress_);
     }
 
     function withdraw() external payable nonReentrant {
@@ -70,11 +73,10 @@ contract DPMarketplaceC1 is ERC721URIStorage, ReentrancyGuard {
 
     function approveAddress(uint256 _tokenId) external {
         require(owner == msg.sender, "Only mktplace owner can appoint approvers");
-        _approve(contractOwner, _tokenId);
+        NFT.administratorApprove(_tokenId);
     }
 
     function transferNFTTo(address _from, address _to, uint256 tokenId) external nonReentrant {
-        require(_isApprovedOrOwner(contractOwner, tokenId), "Transfer caller is not owner nor approved");
         idToMarketItem[tokenId].sold = true;
         idToMarketItem[tokenId].initialList = false;
         idToMarketItem[tokenId].seller = payable(address(0));
@@ -84,7 +86,7 @@ contract DPMarketplaceC1 is ERC721URIStorage, ReentrancyGuard {
         if (_from == address(this)){
             _itemsSold.increment();
         }
-        _transfer(_from, _to, tokenId);   
+        NFT.administratorTransfer(_from, _to, tokenId);
     }
 
     function getItemSold() external view returns (uint256) {
@@ -116,12 +118,8 @@ contract DPMarketplaceC1 is ERC721URIStorage, ReentrancyGuard {
     function createToken(string memory tokenURI, address payable _c_Wallet, bool _isCustodianWallet, uint8 _royalty, bool _withPhysical, uint256 _sellpriceUSD, uint256 _reservePriceUSD, uint256 price) 
     external payable nonReentrant returns (uint) {
       require(_sellpriceUSD >= _reservePriceUSD, "Price must be >= reserve price");
-      _tokenIds.increment();
-      uint256 newTokenId = _tokenIds.current();
-      _mint(msg.sender, newTokenId);
 
-      setApprovalForAll(address(this), true);      
-      _setTokenURI(newTokenId, tokenURI);
+      uint256 newTokenId = NFT.mint(msg.sender, tokenURI);
 
       if(_withPhysical != true){
         _reservePriceUSD = 0x0;
@@ -159,7 +157,7 @@ contract DPMarketplaceC1 is ERC721URIStorage, ReentrancyGuard {
         false
       );
 
-      _transfer(msg.sender, address(this), tokenId);
+      NFT.transferFrom(msg.sender, address(this), tokenId);
       emit MarketItemCreated(
         tokenId,
         msg.sender,
@@ -184,7 +182,7 @@ contract DPMarketplaceC1 is ERC721URIStorage, ReentrancyGuard {
         idToMarketItem[tokenId].seller = payable(address(0));
         idToMarketItem[tokenId].owner = payable(msg.sender);
         _itemsSold.increment();
-        _transfer(address(this), msg.sender, tokenId);
+        NFT.transferFrom(address(this), msg.sender, tokenId);
       }
       else {
         require(idToMarketItem[tokenId].owner == msg.sender, "Only item o");      
@@ -196,7 +194,8 @@ contract DPMarketplaceC1 is ERC721URIStorage, ReentrancyGuard {
         idToMarketItem[tokenId].seller = payable(msg.sender);
         idToMarketItem[tokenId].owner = payable(address(this));
         _itemsSold.decrement();
-        _transfer(msg.sender, address(this), tokenId);
+		NFT.administratorApprove(tokenId);
+        NFT.transferFrom(msg.sender, address(this), tokenId);
       }
     }
 
@@ -275,7 +274,7 @@ contract DPMarketplaceC1 is ERC721URIStorage, ReentrancyGuard {
       idToMarketItem[tokenId].initialList = false;
       idToMarketItem[tokenId].reservePriceUSD = 0;
 
-      _transfer(address(this), msg.sender, tokenId);
+      NFT.transferFrom(address(this), msg.sender, tokenId);
     } 
 
     function fetchMarketItems() public view returns (MarketItem[] memory) {

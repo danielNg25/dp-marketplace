@@ -4,8 +4,10 @@ import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 
 import { DPMarketplaceC1__factory } from "../typechain-types";
+import { DPNFT__factory } from "../typechain-types";
 
 import { DPMarketplaceC1 } from "../typechain-types";
+import { DPNFT } from "../typechain-types";
 
 import { parseEther } from "ethers/lib/utils";
 
@@ -25,6 +27,7 @@ describe("Marketplace", () => {
     let creator: SignerWithAddress;
 
     let marketplace: DPMarketplaceC1;
+    let nft: DPNFT;
 
     beforeEach(async () => {
         const accounts: SignerWithAddress[] = await ethers.getSigners();
@@ -35,9 +38,13 @@ describe("Marketplace", () => {
         web3re = accounts[4];
         creator = accounts[5];
 
+        const DPNFT: DPNFT__factory = await ethers.getContractFactory("DPNFT");
         const Marketplace: DPMarketplaceC1__factory = await ethers.getContractFactory("DPMarketplaceC1");
 
-        marketplace = await Marketplace.deploy(owner.address, charity.address, web3re.address);
+        nft = await DPNFT.deploy();
+        marketplace = await Marketplace.deploy(owner.address, charity.address, web3re.address, nft.address);
+
+        await nft.setAdministrator(marketplace.address);
 
         listingPrice = await marketplace.getListingPrice();
         listingPriceSecondary = await marketplace.getListingPriceSecondary();
@@ -99,7 +106,7 @@ describe("Marketplace", () => {
             ).to.changeEtherBalances([charity, creator, web3re], [charityAmount, creatorAmount, web3reAmount]);
 
             marketItem = await marketplace.getMarketItem(1);
-            expect(await marketplace.ownerOf(1)).to.equal(user1.address);
+            expect(await nft.ownerOf(1)).to.equal(user1.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
             expect(marketItem.owner).to.equal(user1.address);
             expect(marketItem.sellpriceUSD).to.equal(1000);
@@ -128,10 +135,10 @@ describe("Marketplace", () => {
             expect(
                 await marketplace.connect(user1).createMarketSale(1, { value: sellpriceUSD.add(1) })
             ).to.changeEtherBalances([charity, creator, web3re], [charityAmount, creatorAmount, web3reAmount]);
-            expect(await marketplace.ownerOf(1)).to.equal(user1.address);
+            expect(await nft.ownerOf(1)).to.equal(user1.address);
 
             marketItem = await marketplace.getMarketItem(1);
-            expect(await marketplace.ownerOf(1)).to.equal(user1.address);
+            expect(await nft.ownerOf(1)).to.equal(user1.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
             expect(marketItem.owner).to.equal(user1.address);
             expect(marketItem.sellpriceUSD).to.equal(1000);
@@ -235,10 +242,10 @@ describe("Marketplace", () => {
                 [sellerAmount, charityAmount, creatorAmount, web3reAmount]
             );
 
-            expect(await marketplace.ownerOf(1)).to.equal(user2.address);
+            expect(await nft.ownerOf(1)).to.equal(user2.address);
 
             marketItem = await marketplace.getMarketItem(1);
-            expect(await marketplace.ownerOf(1)).to.equal(user2.address);
+            expect(await nft.ownerOf(1)).to.equal(user2.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
             expect(marketItem.owner).to.equal(user2.address);
             expect(marketItem.sellpriceUSD).to.equal(2000);
@@ -279,10 +286,10 @@ describe("Marketplace", () => {
                 [sellerAmount, charityAmount, creatorAmount, web3reAmount]
             );
 
-            expect(await marketplace.ownerOf(2)).to.equal(user2.address);
+            expect(await nft.ownerOf(2)).to.equal(user2.address);
 
             marketItem = await marketplace.getMarketItem(2);
-            expect(await marketplace.ownerOf(2)).to.equal(user2.address);
+            expect(await nft.ownerOf(2)).to.equal(user2.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
             expect(marketItem.owner).to.equal(user2.address);
             expect(marketItem.sellpriceUSD).to.equal(2000);
@@ -326,10 +333,10 @@ describe("Marketplace", () => {
                 [sellerAmount, charityAmount, creatorAmount, web3reAmount]
             );
 
-            expect(await marketplace.ownerOf(1)).to.equal(user2.address);
+            expect(await nft.ownerOf(1)).to.equal(user2.address);
 
             marketItem = await marketplace.getMarketItem(1);
-            expect(await marketplace.ownerOf(1)).to.equal(user2.address);
+            expect(await nft.ownerOf(1)).to.equal(user2.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
             expect(marketItem.owner).to.equal(user2.address);
             expect(marketItem.sellpriceUSD).to.equal(2000);
