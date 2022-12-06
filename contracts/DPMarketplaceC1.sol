@@ -86,7 +86,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         if (_from == address(this)){
             _itemsSold.increment();
         }
-        NFT.administratorTransfer(_from, _to, tokenId);
+        NFT.transferFrom(_from, _to, tokenId);
     }
 
     function getItemSold() external view returns (uint256) {

@@ -80,14 +80,6 @@ contract DPNFT is
     }
 
     /**
-     * @dev Function to transfer NFT by Administrator
-     */
-    function administratorTransfer(address from, address to, uint256 tokenId) external onlyAdministrator {
-        require(_isApprovedOrOwner(administrator, tokenId), "Transfer caller is not owner nor approved");
-        _transfer(from, to, tokenId);
-    }
-
-    /**
      * @dev Function to safely mint tokens.
      * @param receiver The address that will receive the minted token.
      * @param uri The uri to mint.
