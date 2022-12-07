@@ -6,6 +6,7 @@ import "@nomiclabs/hardhat-etherscan";
 import "@openzeppelin/hardhat-upgrades";
 import "@typechain/hardhat";
 import "@nomicfoundation/hardhat-toolbox";
+import "solidity-coverage";
 
 import { HardhatUserConfig } from "hardhat/types";
 import "hardhat-docgen";

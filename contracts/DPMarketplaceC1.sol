@@ -49,7 +49,6 @@ contract DPMarketplaceC1 is ReentrancyGuard {
     event MarketItemCreated(
         uint256 indexed tokenId,
         address seller,
-        address owner,
         address c_Wallet,
         bool isCustodianWallet,
         uint8 royalty,
@@ -150,13 +149,17 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         uint256 _sellpriceUSD,
         uint256 _reservePriceUSD,
         uint256 price
-    ) external payable returns (uint) {
+    ) external payable nonReentrant returns (uint) {
         require(
             _sellpriceUSD >= _reservePriceUSD,
             "Price must be >= reserve price"
         );
 
         uint256 newTokenId = NFT.mint(msg.sender, tokenURI);
+
+        if (_withPhysical != true) {
+            _reservePriceUSD = 0x0;
+        }
 
         createMarketItem(
             newTokenId,
@@ -180,18 +183,10 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         uint256 sellpriceUSD,
         uint256 reservePriceUSD,
         uint256 price
-    ) public payable nonReentrant {
-        require(NFT.ownerOf(tokenId) == msg.sender, "Only item o");
-        require(
-            !_listedTokenIds.contains(tokenId),
-            "Item already initialListed"
-        );
+    ) internal {
         require(price > 0, "Price must be at least 1 wei");
         require(msg.value == listingPrice, "Price must be = listing price");
-        require(sellpriceUSD >= reservePriceUSD, "Price must be > r price");
-        if (withPhysical != true) {
-            reservePriceUSD = 0x0;
-        }
+
         _listedTokenIds.add(tokenId);
 
         idToMarketItem[tokenId] = MarketItem(
@@ -213,7 +208,6 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         emit MarketItemCreated(
             tokenId,
             msg.sender,
-            address(this),
             c_Wallet,
             isCustodianWallet,
             royalty,
@@ -263,9 +257,57 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         }
     }
 
+    function createExternalMintedItem(
+        uint256 tokenId,
+        address c_Wallet,
+        bool isCustodianWallet,
+        uint8 royalty,
+        uint256 sellpriceUSD,
+        uint256 price
+    ) external payable nonReentrant {
+        require(NFT.ownerOf(tokenId) == msg.sender, "Only item o");
+        require(!_listedTokenIds.contains(tokenId), "Item already listed");
+        require(
+            msg.value == listingPriceSecondary,
+            "Price must be = Sec list price"
+        );
+
+        _listedTokenIds.add(tokenId);
+
+        idToMarketItem[tokenId] = MarketItem(
+            tokenId,
+            payable(msg.sender),
+            payable(c_Wallet),
+            isCustodianWallet,
+            royalty,
+            false,
+            sellpriceUSD,
+            0,
+            price,
+            false,
+            false
+        );
+
+        _approveAddress(tokenId);
+        NFT.transferFrom(msg.sender, address(this), tokenId);
+        emit MarketItemCreated(
+            tokenId,
+            msg.sender,
+            c_Wallet,
+            isCustodianWallet,
+            royalty,
+            false,
+            sellpriceUSD,
+            0,
+            price,
+            false,
+            false
+        );
+    }
+
     function createMarketSale(uint256 tokenId) external payable nonReentrant {
         uint price2 = idToMarketItem[tokenId].sellpriceUSD.getUsdMatic();
-        require(msg.value >= price2, "missing asking price");
+        require(msg.value == price2, "missing asking price");
 
         uint creator_MATIC = 0x0;
         uint seller_MATIC = 0x0;
