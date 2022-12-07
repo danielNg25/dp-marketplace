@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+
 contract DPNFT is
     ERC721,
     ERC721URIStorage,
@@ -18,16 +19,20 @@ contract DPNFT is
     // Base URI
     string private _baseUri;
 
-    address public administrator;
+    mapping(address => bool) public administrators;
 
     constructor() ERC721("GoyaCoin", "GOYA") {}
 
-    modifier onlyAdministrator{
-        require (_msgSender() == administrator, "Not minter");
+    modifier onlyAdministrator() {
+        require(administrators[_msgSender()], "Not minter");
         _;
     }
 
-    event AdministratorSet (address indexed oldAdministrator, address indexed newAdministrator);
+    event AdministratorSet(
+        address account,
+        bool indexed oldStatus,
+        bool indexed newStatus
+    );
 
     function _beforeTokenTransfer(
         address from,
@@ -41,21 +46,15 @@ contract DPNFT is
         return _baseUri;
     }
 
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override(ERC721, ERC721URIStorage)
-        returns (string memory)
-    {
+    function tokenURI(
+        uint256 tokenId
+    ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(tokenId);
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, ERC721Enumerable)
-        returns (bool)
-    {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(ERC721, ERC721Enumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
@@ -92,18 +91,45 @@ contract DPNFT is
         uint256 tokenId = totalSupply() + 1;
         _safeMint(receiver, tokenId);
         _setTokenURI(tokenId, uri);
-        _setApprovalForAll(receiver, administrator, true);
+        _setApprovalForAll(receiver, msg.sender, true);
         return tokenId;
+    }
+
+    /**
+     * @dev Function to safely mint batch tokens.
+     * @param receivers The address that will receive the minted token.
+     * @param uris The uri to mint.
+     * @return tokenId of new nft
+     */
+    function mintBatch(
+        address[] memory receivers,
+        string[] memory uris
+    ) public onlyAdministrator returns (uint256[] memory) {
+        uint256 length = receivers.length;
+
+        require(
+            length > 0 && receivers.length == uris.length,
+            "Invalid input length"
+        );
+
+        uint256[] memory returnIds = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            uint256 tokenId = totalSupply() + 1;
+            _safeMint(receivers[i], tokenId);
+            _setTokenURI(tokenId, uris[i]);
+            _setApprovalForAll(receivers[i], msg.sender, true);
+            returnIds[i] = tokenId;
+        }
+        return returnIds;
     }
 
     /**
      * @dev Burns a specific ERC721 token.
      * @param tokenId uint256 id of the ERC721 token to be burned.
      */
-    function _burn(uint256 tokenId)
-        internal
-        override(ERC721, ERC721URIStorage)
-    {
+    function _burn(
+        uint256 tokenId
+    ) internal override(ERC721, ERC721URIStorage) {
         //solhint-disable-next-line max-line-length
         require(
             _isApprovedOrOwner(_msgSender(), tokenId),
@@ -117,11 +143,9 @@ contract DPNFT is
      * @param owner address owning the tokens
      * @return uint256[] List of token IDs owned by the requested address
      */
-    function tokensOfOwner(address owner)
-        public
-        view
-        returns (uint256[] memory)
-    {
+    function tokensOfOwner(
+        address owner
+    ) public view returns (uint256[] memory) {
         uint256 balance = balanceOf(owner);
         uint256[] memory tokens = new uint256[](balance);
 
@@ -132,10 +156,13 @@ contract DPNFT is
         return tokens;
     }
 
-    function setAdministrator(address account) external onlyOwner{
-        address oldAdministrator = administrator;
-        require (account != oldAdministrator, "Status set");
-        administrator = account;
-        emit AdministratorSet (oldAdministrator, account);
+    function setAdministratorStatus(
+        address account,
+        bool status
+    ) external onlyOwner {
+        bool oldStatus = administrators[account];
+        require(oldStatus != status, "Status set");
+        administrators[account] = status;
+        emit AdministratorSet(account, oldStatus, status);
     }
 }

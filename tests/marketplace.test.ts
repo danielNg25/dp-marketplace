@@ -14,7 +14,7 @@ import { parseEther } from "ethers/lib/utils";
 describe("Marketplace", () => {
     const PERCENT_BASIS_POINT = BigNumber.from("10000");
     const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
-    const MATIC_PRICE = 83880585;
+    const MATIC_PRICE = 88942317;
 
     let listingPrice: BigNumber;
     let listingPriceSecondary: BigNumber;
@@ -22,6 +22,7 @@ describe("Marketplace", () => {
     let owner: SignerWithAddress;
     let user1: SignerWithAddress;
     let user2: SignerWithAddress;
+    let minter: SignerWithAddress;
     let charity: SignerWithAddress;
     let web3re: SignerWithAddress;
     let creator: SignerWithAddress;
@@ -37,6 +38,7 @@ describe("Marketplace", () => {
         charity = accounts[3];
         web3re = accounts[4];
         creator = accounts[5];
+        minter = accounts[6];
 
         const DPNFT: DPNFT__factory = await ethers.getContractFactory("DPNFT");
         const Marketplace: DPMarketplaceC1__factory = await ethers.getContractFactory("DPMarketplaceC1");
@@ -44,13 +46,37 @@ describe("Marketplace", () => {
         nft = await DPNFT.deploy();
         marketplace = await Marketplace.deploy(owner.address, charity.address, web3re.address, nft.address);
 
-        await nft.setAdministrator(marketplace.address);
+        await nft.setAdministratorStatus(marketplace.address, true);
 
         listingPrice = await marketplace.getListingPrice();
         listingPriceSecondary = await marketplace.getListingPriceSecondary();
     });
 
     describe("createToken", () => {
+        it("Should failed - Price must be >= reserve price", async () => {
+            await expect(
+                marketplace.createToken("google.com", creator.address, true, 5, true, 500, 1000, parseEther("0.0001"), {
+                    value: listingPrice,
+                })
+            ).to.revertedWith("Price must be >= reserve price");
+        });
+
+        it("Should failed - Price must be at least 1 wei", async () => {
+            await expect(
+                marketplace.createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0"), {
+                    value: listingPrice,
+                })
+            ).to.revertedWith("Price must be at least 1 wei");
+        });
+
+        it("Should failed - Price must be = listing price", async () => {
+            await expect(
+                marketplace.createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice.add(1),
+                })
+            ).to.revertedWith("Price must be = listing price");
+        });
+
         it("Should createToken successfully", async () => {
             await marketplace.createToken(
                 "google.com",
@@ -67,7 +93,6 @@ describe("Marketplace", () => {
             let marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.tokenId).to.equal(1);
             expect(marketItem.seller).to.equal(owner.address);
-            expect(marketItem.owner).to.equal(marketplace.address);
             expect(marketItem.c_Wallet).to.equal(creator.address);
             expect(marketItem.isCustodianWallet).to.be.true;
             expect(marketItem.royalty).to.equal(5);
@@ -80,8 +105,51 @@ describe("Marketplace", () => {
         });
     });
 
-    describe("createMarketSale first time - initialList: true", () => {
-        it("Should createMarketSale first time successfully - withPhysical: true", async () => {
+    describe("createMarketItem from external mint", () => {
+        beforeEach(async () => {
+            await nft.setAdministratorStatus(minter.address, true);
+            await nft.connect(minter).mint(user1.address, "");
+        });
+
+        it("Should failed - Only item o", async () => {
+            await expect(
+                marketplace
+                    .connect(user2)
+                    .createMarketItem(1, creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                        value: listingPrice,
+                    })
+            ).to.revertedWith("Only item o");
+        });
+
+        it("Should create successfully", async () => {
+            await marketplace
+                .connect(user1)
+                .createMarketItem(1, creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+
+            let marketItem = await marketplace.getMarketItem(1);
+            expect(marketItem.tokenId).to.equal(1);
+            expect(marketItem.seller).to.equal(user1.address);
+            expect(marketItem.c_Wallet).to.equal(creator.address);
+            expect(marketItem.isCustodianWallet).to.be.true;
+            expect(marketItem.royalty).to.equal(5);
+            expect(marketItem.withPhysical).to.be.true;
+            expect(marketItem.sellpriceUSD).to.equal(1000);
+            expect(marketItem.reservePriceUSD).to.equal(500);
+            expect(marketItem.price).to.equal(parseEther("0.0001"));
+            expect(marketItem.initialList).to.be.true;
+            expect(marketItem.sold).to.be.false;
+        });
+    });
+
+    describe("createMarketSale first time - initialList: true - withPhysical: true", () => {
+        let marketItem;
+        let sellpriceMatic: BigNumber;
+        let charityAmount: BigNumber;
+        let creatorAmount: BigNumber;
+        let web3reAmount: BigNumber;
+        beforeEach(async () => {
             await marketplace.createToken(
                 "google.com",
                 creator.address,
@@ -93,29 +161,53 @@ describe("Marketplace", () => {
                 parseEther("0.0001"),
                 { value: listingPrice }
             );
-            let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceUSD = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
-            let charityAmount = getUsdOrgMatic(marketItem.sellpriceUSD.sub(marketItem.reservePriceUSD), MATIC_PRICE)
-                .mul(80)
-                .div(100)
-                .add(getUsdOrgMatic(marketItem.reservePriceUSD, MATIC_PRICE).mul(20).div(100));
-            let creatorAmount = getUsdOrgMatic(marketItem.reservePriceUSD.mul(65).div(100), MATIC_PRICE);
-            let web3reAmount = sellpriceUSD.sub(charityAmount).sub(charityAmount);
-            expect(
-                await marketplace.connect(user1).createMarketSale(1, { value: sellpriceUSD.add(1) })
+            marketItem = await marketplace.getMarketItem(1);
+            [sellpriceMatic, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
+                marketItem.sellpriceUSD,
+                marketItem.reservePriceUSD,
+                MATIC_PRICE
+            );
+        });
+
+        it("Should failed - missing asking price", async () => {
+            await expect(
+                marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic.sub(1) })
+            ).to.revertedWith("missing asking price");
+        });
+
+        it("Should createMarketSale successfully", async () => {
+            await expect(() =>
+                marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic })
             ).to.changeEtherBalances([charity, creator, web3re], [charityAmount, creatorAmount, web3reAmount]);
 
             marketItem = await marketplace.getMarketItem(1);
             expect(await nft.ownerOf(1)).to.equal(user1.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
-            expect(marketItem.owner).to.equal(user1.address);
             expect(marketItem.sellpriceUSD).to.equal(1000);
             expect(marketItem.reservePriceUSD).to.equal(0);
             expect(marketItem.initialList).to.be.false;
             expect(marketItem.sold).to.be.true;
         });
 
-        it("Should createMarketSale first time successfully - withPhysical: false", async () => {
+        it("Should createMarketSale direct failed - Item already initialListed", async () => {
+            await marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic });
+            await expect(
+                marketplace
+                    .connect(user1)
+                    .createMarketItem(1, creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                        value: listingPrice,
+                    })
+            ).to.revertedWith("Item already initialListed");
+        });
+    });
+
+    describe("createMarketSale first time - initialList: true - withPhysical: false", () => {
+        let marketItem;
+        let sellpriceMatic: BigNumber;
+        let charityAmount: BigNumber;
+        let creatorAmount: BigNumber;
+        let web3reAmount: BigNumber;
+        beforeEach(async () => {
             await marketplace.createToken(
                 "google.com",
                 creator.address,
@@ -127,20 +219,34 @@ describe("Marketplace", () => {
                 parseEther("0.0001"),
                 { value: listingPrice }
             );
-            let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceUSD = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
-            let charityAmount = getUsdOrgMatic(marketItem.sellpriceUSD.mul(10).div(100), MATIC_PRICE);
-            let creatorAmount = getUsdOrgMatic(marketItem.reservePriceUSD.mul(85).div(100), MATIC_PRICE);
-            let web3reAmount = sellpriceUSD.sub(charityAmount).sub(charityAmount);
-            expect(
-                await marketplace.connect(user1).createMarketSale(1, { value: sellpriceUSD.add(1) })
+            marketItem = await marketplace.getMarketItem(1);
+            [sellpriceMatic, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
+                marketItem.sellpriceUSD,
+                marketItem.reservePriceUSD,
+                MATIC_PRICE
+            );
+        });
+
+        it("Should failed - missing asking price", async () => {
+            await expect(
+                marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic.sub(1) })
+            ).to.revertedWith("missing asking price");
+        });
+
+        it("Should createMarketSale successfully", async () => {
+            marketItem = await marketplace.getMarketItem(1);
+            [sellpriceMatic, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithoutPhysical(
+                marketItem.sellpriceUSD,
+                MATIC_PRICE
+            );
+            await expect(() =>
+                marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic })
             ).to.changeEtherBalances([charity, creator, web3re], [charityAmount, creatorAmount, web3reAmount]);
             expect(await nft.ownerOf(1)).to.equal(user1.address);
 
             marketItem = await marketplace.getMarketItem(1);
             expect(await nft.ownerOf(1)).to.equal(user1.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
-            expect(marketItem.owner).to.equal(user1.address);
             expect(marketItem.sellpriceUSD).to.equal(1000);
             expect(marketItem.reservePriceUSD).to.equal(0);
             expect(marketItem.initialList).to.be.false;
@@ -162,8 +268,24 @@ describe("Marketplace", () => {
                 { value: listingPrice }
             );
             let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceUSD = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
-            await marketplace.connect(user1).createMarketSale(1, { value: sellpriceUSD.add(1) });
+            let sellpriceMatic = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
+            await marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic });
+        });
+
+        it("Should failed - Only item o", async () => {
+            await expect(
+                marketplace
+                    .connect(user2)
+                    .resellToken(1, 2000, parseEther("0.0011"), false, { value: listingPriceSecondary })
+            ).to.revertedWith("Only item o");
+        });
+
+        it("Should failed - Price must be = Sec list price", async () => {
+            await expect(
+                marketplace
+                    .connect(user1)
+                    .resellToken(1, 2000, parseEther("0.0011"), false, { value: listingPriceSecondary.sub(1) })
+            ).to.revertedWith("Price must be = Sec list price");
         });
 
         it("Should resellToken successfully", async () => {
@@ -173,7 +295,6 @@ describe("Marketplace", () => {
 
             let marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.seller).to.equal(user1.address);
-            expect(marketItem.owner).to.equal(marketplace.address);
             expect(marketItem.c_Wallet).to.equal(creator.address);
             expect(marketItem.isCustodianWallet).to.be.true;
             expect(marketItem.royalty).to.equal(5);
@@ -184,30 +305,9 @@ describe("Marketplace", () => {
             expect(marketItem.initialList).to.be.false;
             expect(marketItem.sold).to.be.false;
         });
-
-        it("Should resellToken - unlist successfully", async () => {
-            await marketplace
-                .connect(user1)
-                .resellToken(1, 2000, parseEther("0.0011"), false, { value: listingPriceSecondary });
-
-            await marketplace.connect(user1).resellToken(1, 2000, parseEther("0.0011"), true);
-
-            let marketItem = await marketplace.getMarketItem(1);
-            expect(marketItem.seller).to.equal(ADDRESS_ZERO);
-            expect(marketItem.owner).to.equal(user1.address);
-            expect(marketItem.c_Wallet).to.equal(creator.address);
-            expect(marketItem.isCustodianWallet).to.be.true;
-            expect(marketItem.royalty).to.equal(5);
-            expect(marketItem.withPhysical).to.be.true;
-            expect(marketItem.sellpriceUSD).to.equal(2000);
-            expect(marketItem.reservePriceUSD).to.equal(0);
-            expect(marketItem.price).to.equal(parseEther("0.0011"));
-            expect(marketItem.initialList).to.be.false;
-            expect(marketItem.sold).to.be.true;
-        });
     });
 
-    describe("createMarketSale after resell - initialList: false - isCustodianWallet: true", () => {
+    describe("resellToken - unlist", () => {
         beforeEach(async () => {
             await marketplace.createToken(
                 "google.com",
@@ -221,8 +321,74 @@ describe("Marketplace", () => {
                 { value: listingPrice }
             );
             let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceUSD = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
-            await marketplace.connect(user1).createMarketSale(1, { value: sellpriceUSD.add(1) });
+            let sellpriceMatic = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
+            await marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic });
+            await marketplace
+                .connect(user1)
+                .resellToken(1, 2000, parseEther("0.0011"), false, { value: listingPriceSecondary });
+        });
+
+        it("Should failed - Only s may unlist", async () => {
+            await expect(marketplace.connect(user2).resellToken(1, 2000, parseEther("0.0011"), true)).to.revertedWith(
+                "Only s may unlist"
+            );
+        });
+
+        it("Should failed - Only s may unlist - initialist item", async () => {
+            await marketplace.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                true,
+                1000,
+                500,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            await expect(marketplace.connect(user2).resellToken(2, 2000, parseEther("0.0011"), true)).to.revertedWith(
+                "Only s may unlist"
+            );
+        });
+
+        it("Should resellToken - unlist successfully", async () => {
+            await marketplace.connect(user1).resellToken(1, 2000, parseEther("0.0011"), true);
+
+            let marketItem = await marketplace.getMarketItem(1);
+            expect(marketItem.seller).to.equal(ADDRESS_ZERO);
+            expect(marketItem.c_Wallet).to.equal(creator.address);
+            expect(marketItem.isCustodianWallet).to.be.true;
+            expect(marketItem.royalty).to.equal(5);
+            expect(marketItem.withPhysical).to.be.true;
+            expect(marketItem.sellpriceUSD).to.equal(2000);
+            expect(marketItem.reservePriceUSD).to.equal(0);
+            expect(marketItem.price).to.equal(parseEther("0.0011"));
+            expect(marketItem.initialList).to.be.false;
+            expect(marketItem.sold).to.be.true;
+        });
+    });
+
+    describe("createMarketSale after resell - initialList: false - isCustodianWallet: true", () => {
+        let sellpriceMatic: BigNumber;
+        let sellerAmount: BigNumber;
+        let charityAmount: BigNumber;
+        let creatorAmount: BigNumber;
+        let web3reAmount: BigNumber;
+        beforeEach(async () => {
+            await marketplace.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                true,
+                1000,
+                500,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            let marketItem = await marketplace.getMarketItem(1);
+            let sellpriceMatic = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
+            await marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic });
             await marketplace
                 .connect(user1)
                 .resellToken(1, 2000, parseEther("0.0011"), false, { value: listingPriceSecondary });
@@ -230,13 +396,10 @@ describe("Marketplace", () => {
 
         it("Should createMarketSale after resell successfully", async () => {
             let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceUSD = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
-            let creatorAmount = getUsdOrgMatic(marketItem.sellpriceUSD.mul(2).div(100), MATIC_PRICE);
-            let charityAmount = getUsdOrgMatic(marketItem.sellpriceUSD.mul(10).div(100), MATIC_PRICE);
-            let sellerAmount = getUsdOrgMatic(marketItem.sellpriceUSD.mul(80).div(100), MATIC_PRICE);
-            let web3reAmount = sellpriceUSD.sub(charityAmount).sub(charityAmount).sub(sellerAmount);
-            expect(
-                await marketplace.connect(user2).createMarketSale(1, { value: sellpriceUSD.add(1) })
+            [sellpriceMatic, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionResellCustodialWallet(marketItem.sellpriceUSD, 5, MATIC_PRICE);
+            await expect(() =>
+                marketplace.connect(user2).createMarketSale(1, { value: sellpriceMatic })
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
                 [sellerAmount, charityAmount, creatorAmount, web3reAmount]
@@ -247,7 +410,6 @@ describe("Marketplace", () => {
             marketItem = await marketplace.getMarketItem(1);
             expect(await nft.ownerOf(1)).to.equal(user2.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
-            expect(marketItem.owner).to.equal(user2.address);
             expect(marketItem.sellpriceUSD).to.equal(2000);
             expect(marketItem.reservePriceUSD).to.equal(0);
             expect(marketItem.initialList).to.be.false;
@@ -267,20 +429,17 @@ describe("Marketplace", () => {
                 { value: listingPrice }
             );
             let marketItem = await marketplace.getMarketItem(2);
-            let sellpriceUSD = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
-            await marketplace.connect(user1).createMarketSale(2, { value: sellpriceUSD.add(1) });
+            sellpriceMatic = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
+            await marketplace.connect(user1).createMarketSale(2, { value: sellpriceMatic });
             await marketplace
                 .connect(user1)
                 .resellToken(2, 2000, parseEther("0.0011"), false, { value: listingPriceSecondary });
 
             marketItem = await marketplace.getMarketItem(2);
-            sellpriceUSD = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
-            let creatorAmount = 0;
-            let charityAmount = getUsdOrgMatic(marketItem.sellpriceUSD.mul(10).div(100), MATIC_PRICE);
-            let sellerAmount = getUsdOrgMatic(marketItem.sellpriceUSD.mul(80).div(100), MATIC_PRICE);
-            let web3reAmount = sellpriceUSD.sub(charityAmount).sub(charityAmount).sub(sellerAmount);
-            expect(
-                await marketplace.connect(user2).createMarketSale(2, { value: sellpriceUSD.add(1) })
+            [sellpriceMatic, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionResellCustodialWallet(marketItem.sellpriceUSD, 1, MATIC_PRICE);
+            await expect(() =>
+                marketplace.connect(user2).createMarketSale(2, { value: sellpriceMatic })
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
                 [sellerAmount, charityAmount, creatorAmount, web3reAmount]
@@ -291,7 +450,6 @@ describe("Marketplace", () => {
             marketItem = await marketplace.getMarketItem(2);
             expect(await nft.ownerOf(2)).to.equal(user2.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
-            expect(marketItem.owner).to.equal(user2.address);
             expect(marketItem.sellpriceUSD).to.equal(2000);
             expect(marketItem.reservePriceUSD).to.equal(0);
             expect(marketItem.initialList).to.be.false;
@@ -300,6 +458,11 @@ describe("Marketplace", () => {
     });
 
     describe("createMarketSale after resell - initialList: false - isCustodianWallet: false", () => {
+        let sellpriceMatic: BigNumber;
+        let sellerAmount: BigNumber;
+        let charityAmount: BigNumber;
+        let creatorAmount: BigNumber;
+        let web3reAmount: BigNumber;
         beforeEach(async () => {
             await marketplace.createToken(
                 "google.com",
@@ -313,21 +476,18 @@ describe("Marketplace", () => {
                 { value: listingPrice }
             );
             let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceUSD = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
-            await marketplace.connect(user1).createMarketSale(1, { value: sellpriceUSD.add(1) });
+            let sellpriceMatic = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
+            await marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic });
             await marketplace
                 .connect(user1)
                 .resellToken(1, 2000, parseEther("0.0011"), false, { value: listingPriceSecondary });
         });
         it("Should createMarketSale after resell successfully", async () => {
             let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceUSD = getUsdMatic(marketItem.sellpriceUSD, MATIC_PRICE);
-            let creatorAmount = getUsdOrgMatic(marketItem.sellpriceUSD.mul(5).div(100), MATIC_PRICE);
-            let charityAmount = getUsdOrgMatic(marketItem.sellpriceUSD.mul(10).div(100), MATIC_PRICE);
-            let sellerAmount = getUsdOrgMatic(marketItem.sellpriceUSD.mul(80).div(100), MATIC_PRICE);
-            let web3reAmount = sellpriceUSD.sub(charityAmount).sub(charityAmount).sub(sellerAmount);
-            expect(
-                await marketplace.connect(user2).createMarketSale(1, { value: sellpriceUSD.add(1) })
+            [sellpriceMatic, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionResellNonCustodialWallet(marketItem.sellpriceUSD, MATIC_PRICE);
+            await expect(() =>
+                marketplace.connect(user2).createMarketSale(1, { value: sellpriceMatic })
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
                 [sellerAmount, charityAmount, creatorAmount, web3reAmount]
@@ -338,7 +498,6 @@ describe("Marketplace", () => {
             marketItem = await marketplace.getMarketItem(1);
             expect(await nft.ownerOf(1)).to.equal(user2.address);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
-            expect(marketItem.owner).to.equal(user2.address);
             expect(marketItem.sellpriceUSD).to.equal(2000);
             expect(marketItem.reservePriceUSD).to.equal(0);
             expect(marketItem.initialList).to.be.false;
@@ -347,9 +506,15 @@ describe("Marketplace", () => {
     });
 });
 
+const getMaticPrice = (maticPrice: number): BigNumber => {
+    let e10 = BigNumber.from("10000000000");
+    let maticPriceBig = BigNumber.from(maticPrice);
+    return maticPriceBig.mul(e10);
+};
+
 const getUsdMatic = (amount: BigNumber, maticPrice: number): BigNumber => {
     let e18 = BigNumber.from("1000000000000000000");
-    let maticPriceBig = BigNumber.from(maticPrice);
+    let maticPriceBig = getMaticPrice(maticPrice);
     let adjust_price = maticPriceBig.mul(e18);
     let usd = amount.mul(e18);
     let rate = usd.mul(e18).div(adjust_price);
@@ -358,9 +523,63 @@ const getUsdMatic = (amount: BigNumber, maticPrice: number): BigNumber => {
 
 const getUsdOrgMatic = (amount: BigNumber, maticPrice: number): BigNumber => {
     let e18 = BigNumber.from("1000000000000000000");
-    let maticPriceBig = BigNumber.from(maticPrice);
+    let maticPriceBig = getMaticPrice(maticPrice);
     let adjust_price = maticPriceBig.mul(e18);
     let usd = amount.mul(e18);
     let rate = usd.mul(e18).div(adjust_price);
     return rate;
+};
+
+const getCommissionFirstTimeWithPhysical = (
+    marketItemSellPriceUSD: BigNumber,
+    marketItemReservePriceUSD: BigNumber,
+    maticPrice: number
+): [BigNumber, BigNumber, BigNumber, BigNumber] => {
+    let sellpriceMatic = getUsdMatic(marketItemSellPriceUSD, maticPrice);
+    let charityAmount = getUsdOrgMatic(marketItemSellPriceUSD.sub(marketItemReservePriceUSD), maticPrice)
+        .mul(80)
+        .div(100)
+        .add(getUsdOrgMatic(marketItemReservePriceUSD, maticPrice).mul(20).div(100));
+    let creatorAmount = getUsdOrgMatic(marketItemReservePriceUSD.mul(65).div(100), maticPrice);
+    let web3reAmount = sellpriceMatic.sub(charityAmount).sub(creatorAmount);
+    return [sellpriceMatic, charityAmount, creatorAmount, web3reAmount];
+};
+
+const getCommissionFirstTimeWithoutPhysical = (
+    marketItemSellPriceUSD: BigNumber,
+    maticPrice: number
+): [BigNumber, BigNumber, BigNumber, BigNumber] => {
+    let sellpriceMatic = getUsdMatic(marketItemSellPriceUSD, maticPrice);
+    let charityAmount = getUsdOrgMatic(marketItemSellPriceUSD.mul(10).div(100), maticPrice);
+    let creatorAmount = getUsdOrgMatic(marketItemSellPriceUSD.mul(85).div(100), maticPrice);
+    let web3reAmount = sellpriceMatic.sub(charityAmount).sub(creatorAmount);
+    return [sellpriceMatic, charityAmount, creatorAmount, web3reAmount];
+};
+
+const getCommissionResellCustodialWallet = (
+    marketItemSellPriceUSD: BigNumber,
+    royaltyPercent: number,
+    maticPrice: number
+): [BigNumber, BigNumber, BigNumber, BigNumber, BigNumber] => {
+    let sellpriceMatic = getUsdMatic(marketItemSellPriceUSD, maticPrice);
+    let creatorAmount = BigNumber.from(0);
+    if (royaltyPercent > 2) {
+        creatorAmount = getUsdOrgMatic(marketItemSellPriceUSD.mul(2).div(100), maticPrice);
+    }
+    let charityAmount = getUsdOrgMatic(marketItemSellPriceUSD.mul(10).div(100), maticPrice);
+    let sellerAmount = getUsdOrgMatic(marketItemSellPriceUSD.mul(80).div(100), maticPrice);
+    let web3reAmount = sellpriceMatic.sub(charityAmount).sub(creatorAmount).sub(sellerAmount);
+    return [sellpriceMatic, creatorAmount, charityAmount, sellerAmount, web3reAmount];
+};
+
+const getCommissionResellNonCustodialWallet = (
+    marketItemSellPriceUSD: BigNumber,
+    maticPrice: number
+): [BigNumber, BigNumber, BigNumber, BigNumber, BigNumber] => {
+    let sellpriceMatic = getUsdMatic(marketItemSellPriceUSD, maticPrice);
+    let creatorAmount = getUsdOrgMatic(marketItemSellPriceUSD.mul(5).div(100), maticPrice);
+    let charityAmount = getUsdOrgMatic(marketItemSellPriceUSD.mul(10).div(100), maticPrice);
+    let sellerAmount = getUsdOrgMatic(marketItemSellPriceUSD.mul(80).div(100), maticPrice);
+    let web3reAmount = sellpriceMatic.sub(charityAmount).sub(creatorAmount).sub(sellerAmount);
+    return [sellpriceMatic, creatorAmount, charityAmount, sellerAmount, web3reAmount];
 };
