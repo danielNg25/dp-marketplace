@@ -272,6 +272,16 @@ describe("Marketplace", () => {
             await marketplace.connect(user1).createMarketSale(1, { value: sellpriceMatic });
         });
 
+        it("Should failed - Can not resell unsold item", async () => {
+            await nft.setAdministratorStatus(minter.address, true);
+            await nft.connect(minter).mint(user1.address, "");
+            await expect(
+                marketplace
+                    .connect(user2)
+                    .resellToken(2, 2000, parseEther("0.0011"), false, { value: listingPriceSecondary })
+            ).to.revertedWith("Can not resell unsold item");
+        });
+
         it("Should failed - Only item o", async () => {
             await expect(
                 marketplace
@@ -502,6 +512,96 @@ describe("Marketplace", () => {
             expect(marketItem.reservePriceUSD).to.equal(0);
             expect(marketItem.initialList).to.be.false;
             expect(marketItem.sold).to.be.true;
+        });
+    });
+
+    describe("getter functions", () => {
+        let marketItem;
+        let sellpriceMatic: BigNumber;
+        let charityAmount: BigNumber;
+        let creatorAmount: BigNumber;
+        let web3reAmount: BigNumber;
+        it("fetchMarketItems", async () => {
+            await marketplace
+                .connect(user1)
+                .createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+
+            await marketplace
+                .connect(user1)
+                .createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+
+            await marketplace
+                .connect(user1)
+                .createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+
+            const marketItem = await marketplace.fetchMarketItems();
+            expect(marketItem.length == 3);
+            expect(marketItem[0].tokenId.toNumber() == 1);
+            expect(marketItem[1].tokenId.toNumber() == 2);
+            expect(marketItem[2].tokenId.toNumber() == 3);
+        });
+
+        it("fetchMyNFTs", async () => {
+            await marketplace
+                .connect(user1)
+                .createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+
+            await marketplace
+                .connect(user1)
+                .createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+
+            await marketplace
+                .connect(user1)
+                .createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+            marketItem = await marketplace.getMarketItem(1);
+            [sellpriceMatic, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
+                marketItem.sellpriceUSD,
+                marketItem.reservePriceUSD,
+                MATIC_PRICE
+            );
+            await marketplace.connect(user2).createMarketSale(1, { value: sellpriceMatic });
+            await marketplace.connect(user2).createMarketSale(2, { value: sellpriceMatic });
+            const myNFT = await marketplace.connect(user2).fetchMyNFTs();
+            expect(myNFT.length == 2);
+            expect(myNFT[0].tokenId.toNumber() == 1);
+            expect(myNFT[0].tokenId.toNumber() == 2);
+        });
+
+        it("fetchItemsListed", async () => {
+            await marketplace
+                .connect(user1)
+                .createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+
+            await marketplace
+                .connect(user1)
+                .createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+
+            await marketplace
+                .connect(user2)
+                .createToken("google.com", creator.address, true, 5, true, 1000, 500, parseEther("0.0001"), {
+                    value: listingPrice,
+                });
+
+            const listItem = await marketplace.connect(user1).fetchItemsListed();
+            expect(listItem.length == 2);
+            expect(listItem[0].tokenId.toNumber() == 1);
+            expect(listItem[0].tokenId.toNumber() == 2);
         });
     });
 });

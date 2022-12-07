@@ -243,6 +243,10 @@ contract DPMarketplaceC1 is ReentrancyGuard {
             _itemsSold.increment();
             NFT.transferFrom(address(this), msg.sender, tokenId);
         } else {
+            require(
+                idToMarketItem[tokenId].sold == true,
+                "Can not resell unsold item"
+            );
             require(NFT.ownerOf(tokenId) == msg.sender, "Only item o");
             require(
                 msg.value == listingPriceSecondary,
