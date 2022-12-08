@@ -24,7 +24,7 @@ contract DPNFT is
     constructor() ERC721("GoyaCoin", "GOYA") {}
 
     modifier onlyAdministrator() {
-        require(administrators[_msgSender()], "Not minter");
+        require(administrators[_msgSender()], "Not administrator");
         _;
     }
 
@@ -114,10 +114,7 @@ contract DPNFT is
 
         uint256[] memory returnIds = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
-            uint256 tokenId = totalSupply() + 1;
-            _safeMint(receivers[i], tokenId);
-            _setTokenURI(tokenId, uris[i]);
-            _setApprovalForAll(receivers[i], msg.sender, true);
+            uint256 tokenId = mint(receivers[i], uris[i]);
             returnIds[i] = tokenId;
         }
         return returnIds;
@@ -135,7 +132,7 @@ contract DPNFT is
             _isApprovedOrOwner(_msgSender(), tokenId),
             "caller is not owner nor approved"
         );
-        _burn(tokenId);
+        super._burn(tokenId);
     }
 
     /**
@@ -148,7 +145,6 @@ contract DPNFT is
     ) public view returns (uint256[] memory) {
         uint256 balance = balanceOf(owner);
         uint256[] memory tokens = new uint256[](balance);
-
         for (uint256 i = 0; i < balance; i++) {
             tokens[i] = tokenOfOwnerByIndex(owner, i);
         }

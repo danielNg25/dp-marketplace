@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "hardhat/console.sol";
 
 contract DPMarketplaceC1 is ReentrancyGuard {
     using Counters for Counters.Counter;
@@ -252,7 +251,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
             idToMarketItem[tokenId].price = price;
             idToMarketItem[tokenId].seller = payable(msg.sender);
             _itemsSold.decrement();
-            NFT.administratorApprove(tokenId);
+            _approveAddress(tokenId);
             NFT.transferFrom(msg.sender, address(this), tokenId);
         }
     }

@@ -10,3 +10,6 @@ to generate type-chain types
 
 `npx hardhat test`
 to run test files
+
+`npm coverage`
+to run coverage test
