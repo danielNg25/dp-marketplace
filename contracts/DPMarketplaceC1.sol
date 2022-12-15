@@ -162,7 +162,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         uint256 price
     ) internal {
         require(price > 0, "Price must be at least 1 wei");
-        require(msg.value == listingPrice, "Price must be = listing price");
+        require(msg.value == listingPrice, "Price must be >= listing price");
 
         _listedTokenIds.add(tokenId);
 
@@ -221,7 +221,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
             require(NFT.ownerOf(tokenId) == msg.sender, "Only item o");
             require(
                 msg.value == listingPriceSecondary,
-                "Price must be = Sec list price"
+                "Price must be >= Sec list price"
             );
 
             idToMarketItem[tokenId].sold = false;
@@ -246,7 +246,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         require(!_listedTokenIds.contains(tokenId), "Item already listed");
         require(
             msg.value == listingPriceSecondary,
-            "Price must be = Sec list price"
+            "Price must be >= Sec list price"
         );
 
         _listedTokenIds.add(tokenId);
@@ -298,7 +298,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
             aggregatorV3Address[paymentToken]
         );
         if (paymentToken == address(0)) {
-            require(msg.value == price2, "missing asking price");
+            require(msg.value >= price2, "missing asking price");
         } else {
             IERC20(paymentToken).transferFrom(
                 msg.sender,

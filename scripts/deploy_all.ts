@@ -3,26 +3,23 @@ import * as fs from "fs";
 import { Signer } from "ethers";
 const ethers = hre.ethers;
 const upgrades = hre.upgrades;
-import { CollectionController__factory } from "../typechain-types/factories/contracts/CollectionController__factory";
-import { NFT__factory } from "../typechain-types/factories/contracts/token/NFT__factory";
-import { ERC20Token__factory } from "../typechain-types/factories/contracts/token/MockERC20.sol/ERC20Token__factory";
+import { DPMarketplaceC1__factory } from "../typechain-types";
+import { DPNFT__factory } from "../typechain-types";
 
-import { NFT } from "../typechain-types/contracts/token/NFT";
-import { CollectionController } from "../typechain-types/contracts/CollectionController";
-import { ERC20Token } from "../typechain-types/contracts/token/MockERC20.sol/ERC20Token";
-
+import { DPMarketplaceC1 } from "../typechain-types";
+import { DPNFT } from "../typechain-types";
 import { parseEther } from "ethers/lib/utils";
 
 async function main() {
     //Loading accounts
     const accounts: Signer[] = await ethers.getSigners();
     const admin = await accounts[0].getAddress();
-
+    const charityAddress = "0xAD34dcA26Bc2b92287b47c3255b4F8A45E56aF46";
+    const web3reAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
     //Loading contracts' factory
-    // const ERC20Token: ERC20Token__factory = <ERC20Token__factory>await ethers.getContractFactory("ERC20Token");
-    const CollectionController: CollectionController__factory = <CollectionController__factory>(
-        await ethers.getContractFactory("CollectionController")
-    );
+    const DPNFT: DPNFT__factory = await ethers.getContractFactory("DPNFT");
+    const Marketplace: DPMarketplaceC1__factory = await ethers.getContractFactory("DPMarketplaceC1");
 
     // Deploy contracts
     console.log("==================================================================");
@@ -37,21 +34,24 @@ async function main() {
 
     // await mockToken.mint(admin, parseEther("10"));
 
-    const controller: CollectionController = <CollectionController>(
-        await upgrades.deployProxy(CollectionController, [admin, admin])
-    );
-    await controller.deployed();
-    console.log("Controller deployed at: ", controller.address);
-    const controllerVerify = await upgrades.erc1967.getImplementationAddress(controller.address);
-    console.log("Controller verify: ", controllerVerify);
+    const nft = await DPNFT.deploy();
+    await nft.deployed();
+
+    const marketplace = await Marketplace.deploy(admin, charityAddress, web3reAddress, nft.address);
+    await marketplace.deployed();
+
+    console.log("Marketplace deployed at: ", marketplace.address);
+    console.log("Controller verify: ", nft.address);
 
     const contractAddress = {
         // mockToken: mockToken.address,
-        controller: controller.address,
-        controllerVerify: controllerVerify,
+        marketplace: marketplace.address,
+        nft: nft.address,
     };
 
     fs.writeFileSync("contracts.json", JSON.stringify(contractAddress));
+
+    await marketplace.setPaymentMethod(ADDRESS_ZERO, "0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada");
 }
 
 // We recommend this pattern to be able to use async/await everywhere
