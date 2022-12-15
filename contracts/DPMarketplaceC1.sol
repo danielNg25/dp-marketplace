@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "./libraries/PriceConverterTest.sol";
+import "./libraries/PriceConverter.sol";
 import "./DPNFT.sol";
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -12,6 +13,10 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 contract DPMarketplaceC1 is ReentrancyGuard {
     using Counters for Counters.Counter;
     using EnumerableSet for EnumerableSet.UintSet;
+    using EnumerableSet for EnumerableSet.AddressSet;
+
+    EnumerableSet.AddressSet private _paymentMethods;
+    mapping(address => address) public aggregatorV3Address;
 
     EnumerableSet.UintSet private _listedTokenIds;
     Counters.Counter private _itemsSold;
@@ -45,6 +50,8 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         bool sold;
     }
 
+    /* ========== EVENTS ========== */
+
     event MarketItemCreated(
         uint256 indexed tokenId,
         address seller,
@@ -59,6 +66,15 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         bool sold
     );
 
+    /* ========== MODIFIERS ========== */
+
+    modifier onlyOwner() {
+        require(owner == msg.sender, "Restricted to owner");
+        _;
+    }
+
+    /* ========== GOVERNANCE ========== */
+
     constructor(
         address contractOwner_,
         address charity_,
@@ -72,73 +88,35 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         NFT = DPNFT(NFTAddress_);
     }
 
-    function withdraw() external payable nonReentrant {
-        require(owner == msg.sender, "Only mktplace owner can withdraw");
+    function withdraw() external payable nonReentrant onlyOwner {
         payable(msg.sender).transfer(address(this).balance);
-    }
-
-    function approveAddress(uint256 _tokenId) public {
-        require(
-            owner == msg.sender,
-            "Only mktplace owner can appoint approvers"
-        );
-        _approveAddress(_tokenId);
-    }
-
-    function _approveAddress(uint256 _tokenId) internal {
-        NFT.administratorApprove(_tokenId);
-    }
-
-    function transferNFTTo(
-        address _from,
-        address _to,
-        uint256 tokenId
-    ) external nonReentrant {
-        if (_listedTokenIds.contains(tokenId)) {
-            idToMarketItem[tokenId].sold = true;
-            idToMarketItem[tokenId].initialList = false;
-            idToMarketItem[tokenId].seller = payable(address(0));
-            idToMarketItem[tokenId].reservePriceUSD = 0;
-            if (_from == address(this)) {
-                _itemsSold.increment();
-            }
-        }
-        NFT.transferFrom(_from, _to, tokenId);
-    }
-
-    function getItemSold() external view returns (uint256) {
-        return _itemsSold.current();
-    }
-
-    function getListingPrice() external view returns (uint256) {
-        return listingPrice;
     }
 
     function updateListingPriceSecondary(
         uint _listingPriceSecondary
-    ) public payable nonReentrant {
-        require(
-            owner == msg.sender,
-            "Only mktplace owner can upd Sec list price."
-        );
+    ) public payable nonReentrant onlyOwner {
         listingPriceSecondary = _listingPriceSecondary;
     }
 
-    function getListingPriceSecondary() public view returns (uint256) {
-        return listingPriceSecondary;
+    function setPaymentMethod(
+        address _token,
+        address _aggregatorV3Address
+    ) external onlyOwner {
+        require(
+            !_paymentMethods.contains(_token),
+            "Payment method already set"
+        );
+        _paymentMethods.add(_token);
+        aggregatorV3Address[_token] = _aggregatorV3Address;
     }
 
-    function getMarketItem(
-        uint256 marketItemId
-    ) external view returns (MarketItem memory) {
-        return idToMarketItem[marketItemId];
+    function removePaymentMethod(address _token) external onlyOwner {
+        require(_paymentMethods.contains(_token), "Payment method not set");
+        _paymentMethods.remove(_token);
+        aggregatorV3Address[_token] = address(0);
     }
 
-    function getUsdMaticPrice(uint256 tokenId) external view returns (uint) {
-        uint priceR = idToMarketItem[tokenId].sellpriceUSD.getUsdMatic();
-        return priceR;
-    }
-
+    /* ========== MUTATIVE FUNCTIONS ========== */
     function createToken(
         string memory tokenURI,
         address payable _c_Wallet,
@@ -304,82 +282,123 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         );
     }
 
-    function createMarketSale(uint256 tokenId) external payable nonReentrant {
-        uint price2 = idToMarketItem[tokenId].sellpriceUSD.getUsdMatic();
-        require(msg.value == price2, "missing asking price");
+    function createMarketSale(
+        uint256 tokenId,
+        address paymentToken
+    ) external payable nonReentrant {
+        require(
+            _paymentMethods.contains(paymentToken),
+            "Payment token not supported"
+        );
 
-        uint creator_MATIC = 0x0;
-        uint seller_MATIC = 0x0;
-        uint charity_matic1 = 0x0;
-        uint charity_matic_total = 0x0;
-        uint web3re_matic_total;
-        address creator = idToMarketItem[tokenId].c_Wallet;
+        MarketItem memory item = idToMarketItem[tokenId];
 
-        if (idToMarketItem[tokenId].initialList == true) {
-            if (idToMarketItem[tokenId].withPhysical == true) {
-                if (
-                    (idToMarketItem[tokenId].sellpriceUSD) >
-                    (idToMarketItem[tokenId].reservePriceUSD)
-                ) {
-                    uint sr_USD = idToMarketItem[tokenId].sellpriceUSD -
-                        idToMarketItem[tokenId].reservePriceUSD;
-                    uint sr_MATIC = sr_USD.getOrgUsdMatic();
-                    charity_matic1 = (sr_MATIC * 80) / 100;
+        uint price2 = item.sellpriceUSD.getUsdToken(
+            paymentToken,
+            aggregatorV3Address[paymentToken]
+        );
+        if (paymentToken == address(0)) {
+            require(msg.value == price2, "missing asking price");
+        } else {
+            IERC20(paymentToken).transferFrom(
+                msg.sender,
+                address(this),
+                price2
+            );
+        }
+
+        uint creatorToken = 0x0;
+        uint sellerToken = 0x0;
+        uint charityTokenTotal = 0x0;
+        uint web3reTokenTotal;
+
+        if (item.initialList == true) {
+            if (item.withPhysical == true) {
+                if ((item.sellpriceUSD) > (item.reservePriceUSD)) {
+                    uint sr_USD = item.sellpriceUSD - item.reservePriceUSD;
+                    uint sr_Token = sr_USD.getOrgUsdToken(
+                        paymentToken,
+                        aggregatorV3Address[paymentToken]
+                    );
+                    charityTokenTotal += (sr_Token * 80) / 100;
                 }
 
-                uint r_USD = idToMarketItem[tokenId].reservePriceUSD;
-                uint r_MATIC = r_USD.getOrgUsdMatic();
-                creator_MATIC = ((r_USD * 65) / 100).getOrgUsdMatic();
-                uint charity_matic2 = (r_MATIC * 20) / 100;
+                uint r_USD = item.reservePriceUSD;
+                uint r_Token = r_USD.getOrgUsdToken(
+                    paymentToken,
+                    aggregatorV3Address[paymentToken]
+                );
+                creatorToken = ((r_USD * 65) / 100).getOrgUsdToken(
+                    paymentToken,
+                    aggregatorV3Address[paymentToken]
+                );
+                charityTokenTotal += (r_Token * 20) / 100;
 
-                charity_matic_total = charity_matic1 + charity_matic2;
-                web3re_matic_total =
-                    msg.value -
-                    creator_MATIC -
-                    charity_matic_total;
+                web3reTokenTotal = price2 - creatorToken - charityTokenTotal;
             } else {
-                creator_MATIC = ((idToMarketItem[tokenId].sellpriceUSD * 85) /
-                    100).getOrgUsdMatic();
-                charity_matic_total = ((idToMarketItem[tokenId].sellpriceUSD *
-                    10) / 100).getOrgUsdMatic();
-                web3re_matic_total =
-                    msg.value -
-                    creator_MATIC -
-                    charity_matic_total;
+                creatorToken = ((item.sellpriceUSD * 85) / 100).getOrgUsdToken(
+                    paymentToken,
+                    aggregatorV3Address[paymentToken]
+                );
+                charityTokenTotal = ((item.sellpriceUSD * 10) / 100)
+                    .getOrgUsdToken(
+                        paymentToken,
+                        aggregatorV3Address[paymentToken]
+                    );
+                web3reTokenTotal = price2 - creatorToken - charityTokenTotal;
             }
-            payable(_charity).transfer(charity_matic_total);
-            payable(creator).transfer(creator_MATIC);
-            payable(_web3re).transfer(web3re_matic_total);
+            if (paymentToken == address(0)) {
+                payable(_charity).transfer(charityTokenTotal);
+                payable(item.c_Wallet).transfer(creatorToken);
+                payable(_web3re).transfer(web3reTokenTotal);
+            } else {
+                IERC20(paymentToken).transfer(_charity, charityTokenTotal);
+                IERC20(paymentToken).transfer(item.c_Wallet, creatorToken);
+                IERC20(paymentToken).transfer(_web3re, web3reTokenTotal);
+            }
 
             _itemsSold.increment();
         } else {
-            address seller = idToMarketItem[tokenId].seller;
-            uint8 royalty_pc = idToMarketItem[tokenId].royalty;
-
-            if (idToMarketItem[tokenId].isCustodianWallet == true) {
-                if (royalty_pc >= 2) {
-                    creator_MATIC = ((idToMarketItem[tokenId].sellpriceUSD *
-                        2) / 100).getOrgUsdMatic();
+            if (item.isCustodianWallet == true) {
+                if (item.royalty >= 2) {
+                    creatorToken = ((item.sellpriceUSD * 2) / 100)
+                        .getOrgUsdToken(
+                            paymentToken,
+                            aggregatorV3Address[paymentToken]
+                        );
                 }
             } else {
-                creator_MATIC = ((idToMarketItem[tokenId].sellpriceUSD *
-                    royalty_pc) / 100).getOrgUsdMatic();
+                creatorToken = ((item.sellpriceUSD * item.royalty) / 100)
+                    .getOrgUsdToken(
+                        paymentToken,
+                        aggregatorV3Address[paymentToken]
+                    );
             }
 
-            seller_MATIC = ((idToMarketItem[tokenId].sellpriceUSD * 80) / 100)
-                .getOrgUsdMatic();
-            charity_matic_total = ((idToMarketItem[tokenId].sellpriceUSD * 10) /
-                100).getOrgUsdMatic();
-            web3re_matic_total =
-                msg.value -
-                creator_MATIC -
-                seller_MATIC -
-                charity_matic_total;
-
-            payable(creator).transfer(creator_MATIC);
-            payable(seller).transfer(seller_MATIC);
-            payable(_charity).transfer(charity_matic_total);
-            payable(_web3re).transfer(web3re_matic_total);
+            sellerToken = ((item.sellpriceUSD * 80) / 100).getOrgUsdToken(
+                paymentToken,
+                aggregatorV3Address[paymentToken]
+            );
+            charityTokenTotal = ((item.sellpriceUSD * 10) / 100).getOrgUsdToken(
+                    paymentToken,
+                    aggregatorV3Address[paymentToken]
+                );
+            web3reTokenTotal =
+                price2 -
+                creatorToken -
+                sellerToken -
+                charityTokenTotal;
+            if (paymentToken == address(0)) {
+                payable(item.c_Wallet).transfer(creatorToken);
+                payable(item.seller).transfer(sellerToken);
+                payable(_charity).transfer(charityTokenTotal);
+                payable(_web3re).transfer(web3reTokenTotal);
+            } else {
+                IERC20(paymentToken).transfer(item.c_Wallet, creatorToken);
+                IERC20(paymentToken).transfer(item.seller, sellerToken);
+                IERC20(paymentToken).transfer(_charity, charityTokenTotal);
+                IERC20(paymentToken).transfer(_web3re, web3reTokenTotal);
+            }
 
             _itemsSold.increment();
         }
@@ -391,6 +410,73 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         idToMarketItem[tokenId].reservePriceUSD = 0;
 
         NFT.transferFrom(address(this), msg.sender, tokenId);
+    }
+
+    function approveAddress(uint256 _tokenId) public onlyOwner {
+        _approveAddress(_tokenId);
+    }
+
+    function transferNFTTo(
+        address _from,
+        address _to,
+        uint256 tokenId
+    ) external nonReentrant {
+        if (_listedTokenIds.contains(tokenId)) {
+            idToMarketItem[tokenId].sold = true;
+            idToMarketItem[tokenId].initialList = false;
+            idToMarketItem[tokenId].seller = payable(address(0));
+            idToMarketItem[tokenId].reservePriceUSD = 0;
+            if (_from == address(this)) {
+                _itemsSold.increment();
+            }
+        }
+        NFT.transferFrom(_from, _to, tokenId);
+    }
+
+    function _approveAddress(uint256 _tokenId) internal {
+        NFT.administratorApprove(_tokenId);
+    }
+
+    /* ========== VIEW FUNCTIONS ========== */
+    function getPaymentMethods() external view returns (address[] memory) {
+        return _paymentMethods.values();
+    }
+
+    function getPaymentMethodDetail(
+        address _token
+    ) external view returns (bool, address) {
+        bool isSupported = _paymentMethods.contains(_token);
+
+        return (isSupported, aggregatorV3Address[_token]);
+    }
+
+    function getItemSold() external view returns (uint256) {
+        return _itemsSold.current();
+    }
+
+    function getListingPrice() external view returns (uint256) {
+        return listingPrice;
+    }
+
+    function getListingPriceSecondary() public view returns (uint256) {
+        return listingPriceSecondary;
+    }
+
+    function getMarketItem(
+        uint256 marketItemId
+    ) external view returns (MarketItem memory) {
+        return idToMarketItem[marketItemId];
+    }
+
+    function getUsdTokenPrice(
+        uint256 tokenId,
+        address paymentToken
+    ) external view returns (uint) {
+        uint priceR = idToMarketItem[tokenId].sellpriceUSD.getUsdToken(
+            paymentToken,
+            aggregatorV3Address[paymentToken]
+        );
+        return priceR;
     }
 
     function fetchMarketItems() public view returns (MarketItem[] memory) {
