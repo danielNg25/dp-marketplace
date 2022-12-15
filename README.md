@@ -1,6 +1,6 @@
 # Compile
 
-`yarn`
+`npm i` or `yarn`
 to install dependencies
 
 `npx hardhat compile`
@@ -11,5 +11,5 @@ to generate type-chain types
 `npx hardhat test`
 to run test files
 
-`npm coverage`
+`npm run coverage` or `yarn coverage`
 to run coverage test
