@@ -156,9 +156,4 @@ const getCommissionResellNonCustodialWallet = (
     return [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount];
 };
 
-console.log(formatEther(getUsdToken(BigNumber.from("200000000000000000"), 89805572, 8, 18)));
 const result = getCommissionResellCustodialWallet(parseEther("0.2"), 5, 89805572, 8, 18);
-console.log(formatEther(result[0]));
-console.log(formatEther(result[1]));
-console.log(formatEther(result[2]));
-console.log(formatEther(result[3]));
