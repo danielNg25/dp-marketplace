@@ -7,7 +7,9 @@ import { DPMarketplaceC1__factory } from "../typechain-types";
 import { DPNFT__factory } from "../typechain-types";
 import { AggregatorV3Test__factory } from "../typechain-types";
 import { MockERC20Token__factory } from "../typechain-types";
+import { DPFeeManager__factory } from "../typechain-types";
 
+import { DPFeeManager } from "../typechain-types";
 import { DPMarketplaceC1 } from "../typechain-types";
 import { DPNFT } from "../typechain-types";
 import { AggregatorV3Test } from "../typechain-types";
@@ -19,7 +21,7 @@ describe("Marketplace", () => {
     const PERCENT_BASIS_POINT = BigNumber.from("10000");
     const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
     const TOKEN_PRICE = 88942317;
-    const TOKEN_DECIMALS_24 = 18;
+    const TOKEN_DECIMALS_24 = 24;
     const TOKEN_DECIMALS_18 = 18;
     const PRICE_FEED_DECIMALS_8 = 8;
 
@@ -34,6 +36,7 @@ describe("Marketplace", () => {
     let web3re: SignerWithAddress;
     let creator: SignerWithAddress;
 
+    let feeManager: DPFeeManager;
     let marketplace: DPMarketplaceC1;
     let nft: DPNFT;
     let aggregatorV3Test: AggregatorV3Test;
@@ -54,9 +57,11 @@ describe("Marketplace", () => {
         const Marketplace: DPMarketplaceC1__factory = await ethers.getContractFactory("DPMarketplaceC1");
         const AggregatorV3Test: AggregatorV3Test__factory = await ethers.getContractFactory("AggregatorV3Test");
         const MockERC20Token: MockERC20Token__factory = await ethers.getContractFactory("MockERC20Token");
+        const FeeManager: DPFeeManager__factory = await ethers.getContractFactory("DPFeeManager");
 
+        feeManager = await FeeManager.deploy(charity.address, web3re.address);
         nft = await DPNFT.deploy();
-        marketplace = await Marketplace.deploy(owner.address, charity.address, web3re.address, nft.address);
+        marketplace = await Marketplace.deploy(owner.address, nft.address, feeManager.address);
 
         aggregatorV3Test = await AggregatorV3Test.deploy(TOKEN_PRICE, PRICE_FEED_DECIMALS_8);
         mockERC20Token_24Decimals = await MockERC20Token.deploy(TOKEN_DECIMALS_24);
@@ -64,21 +69,21 @@ describe("Marketplace", () => {
 
         await nft.setAdministratorStatus(marketplace.address, true);
 
-        listingPrice = await marketplace.getListingPrice();
-        listingPriceSecondary = await marketplace.getListingPriceSecondary();
+        listingPrice = await feeManager.getListingPrice();
+        listingPriceSecondary = await feeManager.getListingPriceSecondary();
 
-        await marketplace.setPaymentMethod(ADDRESS_ZERO, aggregatorV3Test.address);
-        await marketplace.setPaymentMethod(mockERC20Token_24Decimals.address, aggregatorV3Test.address);
+        await feeManager.setPaymentMethod(ADDRESS_ZERO, aggregatorV3Test.address);
+        await feeManager.setPaymentMethod(mockERC20Token_24Decimals.address, aggregatorV3Test.address);
 
         await mockERC20Token_18Decimals.mint(user1.address, parseEther("10"));
         await mockERC20Token_18Decimals.mint(user2.address, parseEther("10"));
-        await mockERC20Token_24Decimals.mint(user1.address, parseEther("10"));
-        await mockERC20Token_24Decimals.mint(user2.address, parseEther("10"));
+        await mockERC20Token_24Decimals.mint(user1.address, parseEther("1000000000"));
+        await mockERC20Token_24Decimals.mint(user2.address, parseEther("1000000000"));
 
         await mockERC20Token_18Decimals.connect(user1).approve(marketplace.address, parseEther("1000"));
         await mockERC20Token_18Decimals.connect(user2).approve(marketplace.address, parseEther("1000"));
-        await mockERC20Token_24Decimals.connect(user1).approve(marketplace.address, parseEther("1000"));
-        await mockERC20Token_24Decimals.connect(user2).approve(marketplace.address, parseEther("1000"));
+        await mockERC20Token_24Decimals.connect(user1).approve(marketplace.address, parseEther("100000000000"));
+        await mockERC20Token_24Decimals.connect(user2).approve(marketplace.address, parseEther("100000000000"));
     });
 
     describe("createToken", () => {
@@ -223,49 +228,6 @@ describe("Marketplace", () => {
         });
     });
 
-    describe("setPaymentMethod", () => {
-        it("Should failed - Restricted to owner", async () => {
-            await expect(
-                marketplace.connect(user1).setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address)
-            ).to.revertedWith("Restricted to owner");
-        });
-
-        it("Should failed - Payment method already set", async () => {
-            await expect(
-                marketplace.setPaymentMethod(mockERC20Token_24Decimals.address, aggregatorV3Test.address)
-            ).to.revertedWith("Payment method already set");
-        });
-
-        it("Should setPaymentMethod successfully", async () => {
-            await marketplace.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
-
-            const paymentMethods = await marketplace.getPaymentMethods();
-            expect(paymentMethods.length).to.equal(3);
-            expect(paymentMethods[2]).to.equal(mockERC20Token_18Decimals.address);
-
-            const paymentMethod = await marketplace.getPaymentMethodDetail(mockERC20Token_18Decimals.address);
-            expect(paymentMethod[0]).to.be.true;
-            expect(paymentMethod[1]).to.equal(aggregatorV3Test.address);
-        });
-
-        it("Should removePaymentMethod failed - Payment method not set", async () => {
-            await expect(marketplace.removePaymentMethod(mockERC20Token_18Decimals.address)).to.revertedWith(
-                "Payment method not set"
-            );
-        });
-
-        it("Should removePaymentMethod successfully", async () => {
-            await marketplace.removePaymentMethod(mockERC20Token_24Decimals.address);
-
-            const paymentMethods = await marketplace.getPaymentMethods();
-            expect(paymentMethods.length).to.equal(1);
-
-            const paymentMethod = await marketplace.getPaymentMethodDetail(mockERC20Token_24Decimals.address);
-            expect(paymentMethod[0]).to.be.false;
-            expect(paymentMethod[1]).to.equal(ADDRESS_ZERO);
-        });
-    });
-
     describe("createMarketSale first time - initialList: true - withPhysical: true", () => {
         let marketItem: DPMarketplaceC1.MarketItemStructOutput;
         let sellpriceToken: BigNumber;
@@ -309,7 +271,7 @@ describe("Marketplace", () => {
         });
 
         it("Should createMarketSale successfully", async () => {
-            expect(await marketplace.getUsdTokenPrice(1, ADDRESS_ZERO)).to.equal(sellpriceToken);
+            expect((await marketplace.getUsdTokenPrice(1, ADDRESS_ZERO))[1]).to.equal(sellpriceToken);
             await expect(() =>
                 marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken })
             ).to.changeEtherBalances([charity, creator, web3re], [charityAmount, creatorAmount, web3reAmount]);
@@ -324,7 +286,7 @@ describe("Marketplace", () => {
         });
 
         it("Should createMarketSale successfully - paymentMethod: ERC20Token - decimals 18", async () => {
-            await marketplace.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
             await expect(() =>
                 marketplace.connect(user1).createMarketSale(1, mockERC20Token_18Decimals.address)
             ).to.changeTokenBalances(
@@ -388,7 +350,7 @@ describe("Marketplace", () => {
                 TOKEN_DECIMALS_18
             );
 
-            expect(await marketplace.getUsdTokenPrice(2, ADDRESS_ZERO)).to.equal(sellpriceToken);
+            expect((await marketplace.getUsdTokenPrice(2, ADDRESS_ZERO))[1]).to.equal(sellpriceToken);
             await expect(() =>
                 marketplace.connect(user1).createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken })
             ).to.changeEtherBalances([charity, creator, web3re], [charityAmount, creatorAmount, web3reAmount]);
@@ -847,8 +809,8 @@ describe("Marketplace", () => {
                 TOKEN_DECIMALS_18
             );
         });
-        it("approveAddress failed - Restricted to owner", async () => {
-            await expect(marketplace.connect(user1).approveAddress(1)).to.revertedWith("Restricted to owner");
+        it("approveAddress failed - Ownable: caller is not the owner", async () => {
+            await expect(marketplace.connect(user1).approveAddress(1)).to.revertedWith("Ownable: caller is not the owner");
         });
         it("Should transfer external minted NFT successfully", async () => {
             await marketplace.approveAddress(1);
@@ -876,18 +838,6 @@ describe("Marketplace", () => {
             expect(marketItem.reservePriceUSD).to.equal(0);
             expect(marketItem.initialList).to.be.false;
             expect(marketItem.sold).to.be.true;
-        });
-    });
-
-    describe("updateListingPriceSecondary", () => {
-        it("Should failed - Restricted to owner.", async () => {
-            await expect(
-                marketplace.connect(user1).updateListingPriceSecondary(listingPriceSecondary.sub(1))
-            ).to.revertedWith("Restricted to owner");
-        });
-
-        it("Should update successfully.", async () => {
-            await marketplace.updateListingPriceSecondary(listingPriceSecondary.sub(1));
         });
     });
 
@@ -1099,7 +1049,7 @@ describe("Marketplace", () => {
                         value: listingPrice,
                     }
                 );
-            await expect(marketplace.connect(user2).withdraw()).to.revertedWith("Restricted to owner");
+            await expect(marketplace.connect(user2).withdraw()).to.revertedWith("Ownable: caller is not the owner");
             await expect(() => marketplace.withdraw()).to.changeEtherBalances(
                 [marketplace, owner],
                 [listingPrice.mul(-1), listingPrice]

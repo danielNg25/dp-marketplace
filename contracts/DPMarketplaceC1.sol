@@ -2,35 +2,24 @@
 pragma solidity ^0.8.4;
 
 import "./libraries/PriceConverter.sol";
+import "./libraries/DPFeeManagerStruct.sol";
 import "./DPNFT.sol";
-
+import "./interface/IDPFeeManager.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-contract DPMarketplaceC1 is ReentrancyGuard {
+contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
     using Counters for Counters.Counter;
     using EnumerableSet for EnumerableSet.UintSet;
-    using EnumerableSet for EnumerableSet.AddressSet;
-
-    EnumerableSet.AddressSet private _paymentMethods;
-    mapping(address => address) public aggregatorV3Address;
 
     EnumerableSet.UintSet private _listedTokenIds;
     Counters.Counter private _itemsSold;
 
     DPNFT public NFT;
-
-    uint256 listingPrice = 0.00001 ether;
-    uint256 listingPriceSecondary = 0.0001 ether;
-
-    address payable owner;
-
-    address private _contractOwner;
-    address private _charity;
-    address private _web3re;
+    IDPFeeManager public FeeManager;
 
     using PriceConverter for uint256;
 
@@ -68,52 +57,20 @@ contract DPMarketplaceC1 is ReentrancyGuard {
 
     /* ========== MODIFIERS ========== */
 
-    modifier onlyOwner() {
-        require(owner == msg.sender, "Restricted to owner");
-        _;
-    }
-
     /* ========== GOVERNANCE ========== */
 
     constructor(
         address contractOwner_,
-        address charity_,
-        address web3re_,
-        address NFTAddress_
+        address NFTAddress_,
+        address DPFeeManager_
     ) {
-        _contractOwner = contractOwner_;
-        _charity = charity_;
-        _web3re = web3re_;
-        owner = payable(contractOwner_);
+        FeeManager = IDPFeeManager(DPFeeManager_);
         NFT = DPNFT(NFTAddress_);
+        _transferOwnership(contractOwner_);
     }
 
     function withdraw() external payable nonReentrant onlyOwner {
         payable(msg.sender).transfer(address(this).balance);
-    }
-
-    function updateListingPriceSecondary(
-        uint _listingPriceSecondary
-    ) public payable nonReentrant onlyOwner {
-        listingPriceSecondary = _listingPriceSecondary;
-    }
-
-    function setPaymentMethod(
-        address _token,
-        address _aggregatorV3Address
-    ) external onlyOwner {
-        require(
-            !_paymentMethods.contains(_token),
-            "Payment method already set"
-        );
-        _paymentMethods.add(_token);
-        aggregatorV3Address[_token] = _aggregatorV3Address;
-    }
-
-    function removePaymentMethod(address _token) external onlyOwner {
-        require(_paymentMethods.contains(_token), "Payment method not set");
-        _paymentMethods.remove(_token);
-        aggregatorV3Address[_token] = address(0);
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -162,7 +119,10 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         uint256 price
     ) internal {
         require(price > 0, "Price must be at least 1 wei");
-        require(msg.value == listingPrice, "Price must be = listing price");
+        require(
+            msg.value == FeeManager.getListingPrice(),
+            "Price must be = listing price"
+        );
 
         _listedTokenIds.add(tokenId);
 
@@ -220,7 +180,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
             );
             require(NFT.ownerOf(tokenId) == msg.sender, "Only item o");
             require(
-                msg.value == listingPriceSecondary,
+                msg.value == FeeManager.getListingPriceSecondary(),
                 "Price must be = Sec list price"
             );
 
@@ -245,7 +205,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         require(NFT.ownerOf(tokenId) == msg.sender, "Only item o");
         require(!_listedTokenIds.contains(tokenId), "Item already listed");
         require(
-            msg.value == listingPriceSecondary,
+            msg.value == FeeManager.getListingPriceSecondary(),
             "Price must be = Sec list price"
         );
 
@@ -286,8 +246,10 @@ contract DPMarketplaceC1 is ReentrancyGuard {
         uint256 tokenId,
         address paymentToken
     ) external payable nonReentrant {
+        FeeManagerStruct.FeeInformation memory feeInfo = FeeManager
+            .getFeeInformation(paymentToken);
         require(
-            _paymentMethods.contains(paymentToken),
+            feeInfo.aggregatorV3 != address(0),
             "Payment token not supported"
         );
 
@@ -295,7 +257,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
 
         uint price2 = item.sellpriceUSD.getUsdToken(
             paymentToken,
-            aggregatorV3Address[paymentToken]
+            feeInfo.aggregatorV3
         );
         if (paymentToken == address(0)) {
             require(msg.value >= price2, "missing asking price");
@@ -318,7 +280,7 @@ contract DPMarketplaceC1 is ReentrancyGuard {
                     uint sr_USD = item.sellpriceUSD - item.reservePriceUSD;
                     uint sr_Token = sr_USD.getOrgUsdToken(
                         paymentToken,
-                        aggregatorV3Address[paymentToken]
+                        feeInfo.aggregatorV3
                     );
                     charityTokenTotal += (sr_Token * 80) / 100;
                 }
@@ -326,11 +288,11 @@ contract DPMarketplaceC1 is ReentrancyGuard {
                 uint r_USD = item.reservePriceUSD;
                 uint r_Token = r_USD.getOrgUsdToken(
                     paymentToken,
-                    aggregatorV3Address[paymentToken]
+                    feeInfo.aggregatorV3
                 );
                 creatorToken = ((r_USD * 65) / 100).getOrgUsdToken(
                     paymentToken,
-                    aggregatorV3Address[paymentToken]
+                    feeInfo.aggregatorV3
                 );
                 charityTokenTotal += (r_Token * 20) / 100;
 
@@ -338,23 +300,23 @@ contract DPMarketplaceC1 is ReentrancyGuard {
             } else {
                 creatorToken = ((item.sellpriceUSD * 85) / 100).getOrgUsdToken(
                     paymentToken,
-                    aggregatorV3Address[paymentToken]
+                    feeInfo.aggregatorV3
                 );
                 charityTokenTotal = ((item.sellpriceUSD * 10) / 100)
-                    .getOrgUsdToken(
-                        paymentToken,
-                        aggregatorV3Address[paymentToken]
-                    );
+                    .getOrgUsdToken(paymentToken, feeInfo.aggregatorV3);
                 web3reTokenTotal = price2 - creatorToken - charityTokenTotal;
             }
             if (paymentToken == address(0)) {
-                payable(_charity).transfer(charityTokenTotal);
+                payable(feeInfo.charity).transfer(charityTokenTotal);
                 payable(item.c_Wallet).transfer(creatorToken);
-                payable(_web3re).transfer(web3reTokenTotal);
+                payable(feeInfo.web3re).transfer(web3reTokenTotal);
             } else {
-                IERC20(paymentToken).transfer(_charity, charityTokenTotal);
+                IERC20(paymentToken).transfer(
+                    feeInfo.charity,
+                    charityTokenTotal
+                );
                 IERC20(paymentToken).transfer(item.c_Wallet, creatorToken);
-                IERC20(paymentToken).transfer(_web3re, web3reTokenTotal);
+                IERC20(paymentToken).transfer(feeInfo.web3re, web3reTokenTotal);
             }
 
             _itemsSold.increment();
@@ -362,26 +324,20 @@ contract DPMarketplaceC1 is ReentrancyGuard {
             if (item.isCustodianWallet == true) {
                 if (item.royalty >= 2) {
                     creatorToken = ((item.sellpriceUSD * 2) / 100)
-                        .getOrgUsdToken(
-                            paymentToken,
-                            aggregatorV3Address[paymentToken]
-                        );
+                        .getOrgUsdToken(paymentToken, feeInfo.aggregatorV3);
                 }
             } else {
                 creatorToken = ((item.sellpriceUSD * item.royalty) / 100)
-                    .getOrgUsdToken(
-                        paymentToken,
-                        aggregatorV3Address[paymentToken]
-                    );
+                    .getOrgUsdToken(paymentToken, feeInfo.aggregatorV3);
             }
 
             sellerToken = ((item.sellpriceUSD * 80) / 100).getOrgUsdToken(
                 paymentToken,
-                aggregatorV3Address[paymentToken]
+                feeInfo.aggregatorV3
             );
             charityTokenTotal = ((item.sellpriceUSD * 10) / 100).getOrgUsdToken(
                     paymentToken,
-                    aggregatorV3Address[paymentToken]
+                    feeInfo.aggregatorV3
                 );
             web3reTokenTotal =
                 price2 -
@@ -391,13 +347,16 @@ contract DPMarketplaceC1 is ReentrancyGuard {
             if (paymentToken == address(0)) {
                 payable(item.c_Wallet).transfer(creatorToken);
                 payable(item.seller).transfer(sellerToken);
-                payable(_charity).transfer(charityTokenTotal);
-                payable(_web3re).transfer(web3reTokenTotal);
+                payable(feeInfo.charity).transfer(charityTokenTotal);
+                payable(feeInfo.web3re).transfer(web3reTokenTotal);
             } else {
                 IERC20(paymentToken).transfer(item.c_Wallet, creatorToken);
                 IERC20(paymentToken).transfer(item.seller, sellerToken);
-                IERC20(paymentToken).transfer(_charity, charityTokenTotal);
-                IERC20(paymentToken).transfer(_web3re, web3reTokenTotal);
+                IERC20(paymentToken).transfer(
+                    feeInfo.charity,
+                    charityTokenTotal
+                );
+                IERC20(paymentToken).transfer(feeInfo.web3re, web3reTokenTotal);
             }
 
             _itemsSold.increment();
@@ -438,28 +397,8 @@ contract DPMarketplaceC1 is ReentrancyGuard {
     }
 
     /* ========== VIEW FUNCTIONS ========== */
-    function getPaymentMethods() external view returns (address[] memory) {
-        return _paymentMethods.values();
-    }
-
-    function getPaymentMethodDetail(
-        address _token
-    ) external view returns (bool, address) {
-        bool isSupported = _paymentMethods.contains(_token);
-
-        return (isSupported, aggregatorV3Address[_token]);
-    }
-
     function getItemSold() external view returns (uint256) {
         return _itemsSold.current();
-    }
-
-    function getListingPrice() external view returns (uint256) {
-        return listingPrice;
-    }
-
-    function getListingPriceSecondary() public view returns (uint256) {
-        return listingPriceSecondary;
     }
 
     function getMarketItem(
@@ -471,12 +410,17 @@ contract DPMarketplaceC1 is ReentrancyGuard {
     function getUsdTokenPrice(
         uint256 tokenId,
         address paymentToken
-    ) external view returns (uint) {
-        uint priceR = idToMarketItem[tokenId].sellpriceUSD.getUsdToken(
-            paymentToken,
-            aggregatorV3Address[paymentToken]
-        );
-        return priceR;
+    ) external view returns (bool, uint256) {
+        (bool isSupported, address aggregatorV3) = FeeManager
+            .getPaymentMethodDetail(paymentToken);
+        uint256 priceR = 0;
+        if (isSupported) {
+            priceR = idToMarketItem[tokenId].sellpriceUSD.getUsdToken(
+                paymentToken,
+                aggregatorV3
+            );
+        }
+        return (isSupported, priceR);
     }
 
     function fetchMarketItems() public view returns (MarketItem[] memory) {
