@@ -810,7 +810,9 @@ describe("Marketplace", () => {
             );
         });
         it("approveAddress failed - Ownable: caller is not the owner", async () => {
-            await expect(marketplace.connect(user1).approveAddress(1)).to.revertedWith("Ownable: caller is not the owner");
+            await expect(marketplace.connect(user1).approveAddress(1)).to.revertedWith(
+                "Ownable: caller is not the owner"
+            );
         });
         it("Should transfer external minted NFT successfully", async () => {
             await marketplace.approveAddress(1);
@@ -1083,10 +1085,9 @@ const getUsdToken = (
     priceDecimals: number,
     tokenDecimals: number
 ): BigNumber => {
-    let e18 = BigNumber.from("1000000000000000000");
     let maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
-    let rate = amount.mul(e18).div(maticPriceBig);
+    let rate = amount.mul(BigNumber.from("10").pow(tokenDecimals)).div(maticPriceBig);
     return rate.mul(102).div(100);
 };
 
@@ -1096,10 +1097,9 @@ const getUsdOrgToken = (
     priceDecimals: number,
     tokenDecimals: number
 ): BigNumber => {
-    let e18 = BigNumber.from("1000000000000000000");
     let maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
-    let rate = amount.mul(e18).div(maticPriceBig);
+    let rate = amount.mul(BigNumber.from("10").pow(tokenDecimals)).div(maticPriceBig);
     return rate;
 };
 

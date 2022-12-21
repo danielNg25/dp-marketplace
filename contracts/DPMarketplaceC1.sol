@@ -14,14 +14,13 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
     using Counters for Counters.Counter;
     using EnumerableSet for EnumerableSet.UintSet;
+    using PriceConverter for uint256;
 
     EnumerableSet.UintSet private _listedTokenIds;
     Counters.Counter private _itemsSold;
 
     DPNFT public NFT;
     IDPFeeManager public FeeManager;
-
-    using PriceConverter for uint256;
 
     mapping(uint256 => MarketItem) private idToMarketItem;
 
@@ -76,34 +75,39 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
     /* ========== MUTATIVE FUNCTIONS ========== */
     function createToken(
         string memory tokenURI,
-        address payable _c_Wallet,
-        bool _isCustodianWallet,
-        uint8 _royalty,
-        bool _withPhysical,
-        uint256 _sellpriceUSD,
-        uint256 _reservePriceUSD,
+        address payable c_Wallet,
+        bool isCustodianWallet,
+        uint8 royalty,
+        bool withPhysical,
+        uint256 sellpriceUSD,
+        uint256 reservePriceUSD,
         uint256 price
     ) external payable nonReentrant returns (uint) {
         require(
-            _sellpriceUSD >= _reservePriceUSD,
+            sellpriceUSD >= reservePriceUSD,
             "Price must be >= reserve price"
         );
-
+        require(price > 0, "Price must be at least 1 wei");
+        require(
+            msg.value == FeeManager.getListingPrice(),
+            "Price must be = listing price"
+        );
         uint256 newTokenId = NFT.mint(msg.sender, tokenURI);
 
-        if (_withPhysical != true) {
-            _reservePriceUSD = 0x0;
+        if (withPhysical != true) {
+            reservePriceUSD = 0x0;
         }
 
         createMarketItem(
             newTokenId,
-            _c_Wallet,
-            _isCustodianWallet,
-            _royalty,
-            _withPhysical,
-            _sellpriceUSD,
-            _reservePriceUSD,
-            price
+            c_Wallet,
+            isCustodianWallet,
+            royalty,
+            withPhysical,
+            sellpriceUSD,
+            reservePriceUSD,
+            price,
+            true
         );
         return newTokenId;
     }
@@ -116,14 +120,9 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         bool withPhysical,
         uint256 sellpriceUSD,
         uint256 reservePriceUSD,
-        uint256 price
+        uint256 price,
+        bool initialList
     ) internal {
-        require(price > 0, "Price must be at least 1 wei");
-        require(
-            msg.value == FeeManager.getListingPrice(),
-            "Price must be = listing price"
-        );
-
         _listedTokenIds.add(tokenId);
 
         idToMarketItem[tokenId] = MarketItem(
@@ -136,7 +135,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
             sellpriceUSD,
             reservePriceUSD,
             price,
-            true,
+            initialList,
             false
         );
 
@@ -159,7 +158,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
 
     function resellToken(
         uint256 tokenId,
-        uint256 _sellpriceUSD,
+        uint256 sellpriceUSD,
         uint256 price,
         bool _unlist
     ) external payable nonReentrant {
@@ -185,7 +184,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
             );
 
             idToMarketItem[tokenId].sold = false;
-            idToMarketItem[tokenId].sellpriceUSD = _sellpriceUSD;
+            idToMarketItem[tokenId].sellpriceUSD = sellpriceUSD;
             idToMarketItem[tokenId].price = price;
             idToMarketItem[tokenId].seller = payable(msg.sender);
             _itemsSold.decrement();
@@ -209,11 +208,8 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
             "Price must be = Sec list price"
         );
 
-        _listedTokenIds.add(tokenId);
-
-        idToMarketItem[tokenId] = MarketItem(
+        createMarketItem(
             tokenId,
-            payable(msg.sender),
             payable(c_Wallet),
             isCustodianWallet,
             royalty,
@@ -221,23 +217,6 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
             sellpriceUSD,
             0,
             price,
-            false,
-            false
-        );
-
-        _approveAddress(tokenId);
-        NFT.transferFrom(msg.sender, address(this), tokenId);
-        emit MarketItemCreated(
-            tokenId,
-            msg.sender,
-            c_Wallet,
-            isCustodianWallet,
-            royalty,
-            false,
-            sellpriceUSD,
-            0,
-            price,
-            false,
             false
         );
     }
@@ -261,6 +240,9 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         );
         if (paymentToken == address(0)) {
             require(msg.value >= price2, "missing asking price");
+            if (msg.value > price2) {
+                payable(msg.sender).transfer(msg.value - price2);
+            }
         } else {
             IERC20(paymentToken).transferFrom(
                 msg.sender,
@@ -371,7 +353,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         NFT.transferFrom(address(this), msg.sender, tokenId);
     }
 
-    function approveAddress(uint256 _tokenId) public onlyOwner {
+    function approveAddress(uint256 _tokenId) public onlyOwner nonReentrant {
         _approveAddress(_tokenId);
     }
 
