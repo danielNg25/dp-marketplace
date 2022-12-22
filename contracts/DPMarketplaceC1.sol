@@ -5,6 +5,8 @@ import "./libraries/PriceConverter.sol";
 import "./libraries/DPFeeManagerStruct.sol";
 import "./DPNFT.sol";
 import "./interface/IDPFeeManager.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -12,8 +14,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
+contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
+    using Address for address payable;
     using Counters for Counters.Counter;
     using EnumerableSet for EnumerableSet.UintSet;
     using PriceConverter for uint256;
@@ -82,6 +85,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         uint256 charityAmountToken,
         uint256 web3reAmountToken
     );
+    event FundsWithdrawed(address receiver, address token, uint256 amount);
 
     /* ========== MODIFIERS ========== */
 
@@ -105,12 +109,14 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         if (token == address(0)) {
             withdrawAmount = address(this).balance;
             require(withdrawAmount > 0, "Nothing to withdraw");
-            receiver.transfer(withdrawAmount);
+            receiver.sendValue(withdrawAmount);
         } else {
             withdrawAmount = IERC20(token).balanceOf(address(this));
             require(withdrawAmount > 0, "Nothing to withdraw");
             IERC20(token).safeTransfer(receiver, withdrawAmount);
         }
+
+        emit FundsWithdrawed(receiver, token, withdrawAmount);
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -123,7 +129,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         uint256 sellpriceUSD,
         uint256 reservePriceUSD,
         uint256 price
-    ) external payable nonReentrant returns (uint) {
+    ) external payable nonReentrant whenNotPaused returns (uint) {
         require(
             sellpriceUSD >= reservePriceUSD,
             "Price must be >= reserve price"
@@ -201,7 +207,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         uint256 sellpriceUSD,
         uint256 price,
         bool _unlist
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         MarketItem memory marketItem = idToMarketItem[tokenId];
         if (_unlist) {
             require(
@@ -251,7 +257,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         uint8 royalty,
         uint256 sellpriceUSD,
         uint256 price
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         require(NFT.ownerOf(tokenId) == msg.sender, "Only item o");
         require(!_listedTokenIds.contains(tokenId), "Item already listed");
         require(
@@ -288,7 +294,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
     function createMarketSale(
         uint256 tokenId,
         address paymentToken
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         FeeManagerStruct.FeeInformation memory feeInfo = FeeManager
             .getFeeInformation(paymentToken);
         require(
@@ -307,7 +313,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         if (paymentToken == address(0)) {
             require(msg.value >= price2, "missing asking price");
             if (msg.value > price2) {
-                payable(msg.sender).transfer(msg.value - price2);
+                payable(msg.sender).sendValue(msg.value - price2);
             }
         } else {
             IERC20(paymentToken).safeTransferFrom(
@@ -345,9 +351,9 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
                 web3reTokenTotal = price2 - creatorToken - charityTokenTotal;
             }
             if (paymentToken == address(0)) {
-                payable(feeInfo.charity).transfer(charityTokenTotal);
-                payable(item.c_Wallet).transfer(creatorToken);
-                payable(feeInfo.web3re).transfer(web3reTokenTotal);
+                payable(feeInfo.charity).sendValue(charityTokenTotal);
+                payable(item.c_Wallet).sendValue(creatorToken);
+                payable(feeInfo.web3re).sendValue(web3reTokenTotal);
             } else {
                 IERC20(paymentToken).safeTransfer(
                     feeInfo.charity,
@@ -400,10 +406,10 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
                 sellerToken -
                 charityTokenTotal;
             if (paymentToken == address(0)) {
-                payable(item.c_Wallet).transfer(creatorToken);
-                payable(item.seller).transfer(sellerToken);
-                payable(feeInfo.charity).transfer(charityTokenTotal);
-                payable(feeInfo.web3re).transfer(web3reTokenTotal);
+                payable(item.c_Wallet).sendValue(creatorToken);
+                payable(item.seller).sendValue(sellerToken);
+                payable(feeInfo.charity).sendValue(charityTokenTotal);
+                payable(feeInfo.web3re).sendValue(web3reTokenTotal);
             } else {
                 IERC20(paymentToken).safeTransfer(item.c_Wallet, creatorToken);
                 IERC20(paymentToken).safeTransfer(item.seller, sellerToken);
@@ -445,7 +451,9 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         NFT.transferFrom(address(this), msg.sender, tokenId);
     }
 
-    function approveAddress(uint256 _tokenId) public onlyOwner nonReentrant {
+    function approveAddress(
+        uint256 _tokenId
+    ) public onlyOwner nonReentrant whenNotPaused {
         _approveAddress(_tokenId);
     }
 
@@ -453,7 +461,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         address _from,
         address _to,
         uint256 tokenId
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         if (_listedTokenIds.contains(tokenId)) {
             idToMarketItem[tokenId].sold = true;
             idToMarketItem[tokenId].initialList = false;
