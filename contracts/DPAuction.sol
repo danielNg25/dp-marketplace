@@ -64,6 +64,7 @@ contract DPAuction is Ownable, ReentrancyGuard {
         uint256 bidPriceToken;
         uint256 bidPriceWithFeeToken;
         uint256 reservePriceToken;
+        uint80 oracleRoundId;
         BidStatus status;
     }
 
@@ -329,10 +330,12 @@ contract DPAuction is Ownable, ReentrancyGuard {
             "Price less than min price"
         );
 
-        uint256 priceWithFeeToken = priceUSD.getUsdToken(
+        PriceConverter.PriceData memory priceData = PriceConverter.getPrice(
             paymentToken,
             feeInfo.aggregatorV3
         );
+
+        uint256 priceWithFeeToken = priceUSD.getUsdToken(priceData);
 
         uint256 priceToken = (priceWithFeeToken * 100) / 102;
 
@@ -349,8 +352,7 @@ contract DPAuction is Ownable, ReentrancyGuard {
             );
         }
         uint256 reservePriceToken = auctionItem.reservePriceUSD.getOrgUsdToken(
-            paymentToken,
-            feeInfo.aggregatorV3
+            priceData
         );
 
         adminHoldPayment[paymentToken] += priceWithFeeToken;
@@ -365,6 +367,7 @@ contract DPAuction is Ownable, ReentrancyGuard {
             priceToken,
             priceWithFeeToken,
             reservePriceToken,
+            priceData.oracleRoundId,
             BidStatus.Lived
         );
 
@@ -532,10 +535,12 @@ contract DPAuction is Ownable, ReentrancyGuard {
             "Payment token not supported"
         );
 
-        uint256 priceWithFeeToken = priceUSD.getUsdToken(
+        PriceConverter.PriceData memory priceData = PriceConverter.getPrice(
             bidItem.paymentToken,
             feeInfo.aggregatorV3
         );
+
+        uint256 priceWithFeeToken = priceUSD.getUsdToken(priceData);
 
         uint256 priceToken = (priceWithFeeToken * 100) / 102;
 
@@ -579,10 +584,10 @@ contract DPAuction is Ownable, ReentrancyGuard {
         }
 
         uint256 reservePriceToken = auctionItem.reservePriceUSD.getOrgUsdToken(
-            bidItem.paymentToken,
-            feeInfo.aggregatorV3
+            priceData
         );
 
+        idToBidItem[bidId].oracleRoundId = priceData.oracleRoundId;
         idToBidItem[bidId].bidPriceToken = priceToken;
         idToBidItem[bidId].bidPriceUSD = priceUSD;
         idToBidItem[bidId].bidPriceWithFeeToken = priceWithFeeToken;
@@ -665,5 +670,174 @@ contract DPAuction is Ownable, ReentrancyGuard {
 
     function _approveAddress(uint256 _tokenId) internal {
         NFT.administratorApprove(_tokenId);
+    }
+
+    /* ========== VIEW FUNCTIONS ========== */
+    function getItemSold() external view returns (uint256) {
+        return _itemsSold.current();
+    }
+
+    function getAuctionById(
+        uint256 auctionItemId
+    ) external view returns (AuctionItem memory) {
+        return idToAuctionItem[auctionItemId];
+    }
+
+    function getLastestAuctionToken(
+        uint256 tokenId
+    ) external view returns (AuctionItem memory) {
+        return idToAuctionItem[tokenToAuctionId[tokenId]];
+    }
+
+    function getBidById(
+        uint256 bidItemId
+    ) external view returns (BidItem memory) {
+        return idToBidItem[bidItemId];
+    }
+
+    function getHighestBidOfAuction(
+        uint256 auctionItemId
+    ) external view returns (BidItem memory) {
+        return idToBidItem[idToAuctionItem[auctionItemId].highestBidId];
+    }
+
+    function getHighestBidOfLastestAuctionToken(
+        uint256 tokenId
+    ) external view returns (BidItem memory) {
+        return
+            idToBidItem[
+                idToAuctionItem[tokenToAuctionId[tokenId]].highestBidId
+            ];
+    }
+
+    function getUsdTokenStartPriceOfAuction(
+        uint256 auctionItemId,
+        address paymentToken
+    ) external view returns (bool, uint256) {
+        (bool isSupported, address aggregatorV3) = FeeManager
+            .getPaymentMethodDetail(paymentToken);
+        uint256 priceR = 0;
+        if (isSupported) {
+            PriceConverter.PriceData memory priceData = PriceConverter.getPrice(
+                paymentToken,
+                aggregatorV3
+            );
+            priceR = idToAuctionItem[auctionItemId].startPriceUSD.getUsdToken(
+                priceData
+            );
+        }
+        return (isSupported, priceR);
+    }
+
+    function getUsdTokenStartPriceOfToken(
+        uint256 tokenId,
+        address paymentToken
+    ) external view returns (bool, uint256) {
+        (bool isSupported, address aggregatorV3) = FeeManager
+            .getPaymentMethodDetail(paymentToken);
+        uint256 priceR = 0;
+        if (isSupported) {
+            PriceConverter.PriceData memory priceData = PriceConverter.getPrice(
+                paymentToken,
+                aggregatorV3
+            );
+            priceR = idToAuctionItem[tokenToAuctionId[tokenId]]
+                .startPriceUSD
+                .getUsdToken(priceData);
+        }
+        return (isSupported, priceR);
+    }
+
+    function getUsdTokenPrice(
+        uint256 amountUsd,
+        address paymentToken
+    ) external view returns (bool, uint256) {
+        (bool isSupported, address aggregatorV3) = FeeManager
+            .getPaymentMethodDetail(paymentToken);
+        uint256 priceR = 0;
+        if (isSupported) {
+            PriceConverter.PriceData memory priceData = PriceConverter.getPrice(
+                paymentToken,
+                aggregatorV3
+            );
+            priceR = amountUsd.getUsdToken(priceData);
+        }
+        return (isSupported, priceR);
+    }
+
+    function fetchAuctionItems() public view returns (AuctionItem[] memory) {
+        uint itemCount = _listedTokenIds.length();
+        uint unsoldItemCount = itemCount - _itemsSold.current();
+        uint currentIndex = 0;
+
+        AuctionItem[] memory items = new AuctionItem[](unsoldItemCount);
+        for (uint i = 0; i < itemCount; i++) {
+            uint currentId = _listedTokenIds.at(i);
+            if (NFT.ownerOf(currentId) == address(this)) {
+                AuctionItem memory currentItem = idToAuctionItem[
+                    tokenToAuctionId[currentId]
+                ];
+                items[currentIndex] = currentItem;
+                currentIndex += 1;
+            }
+        }
+        return items;
+    }
+
+    function fetchMyNFTs() public view returns (AuctionItem[] memory) {
+        uint totalItemCount = _listedTokenIds.length();
+        uint itemCount = 0;
+        uint currentIndex = 0;
+
+        for (uint i = 0; i < totalItemCount; i++) {
+            uint currentId = _listedTokenIds.at(i);
+            if (NFT.ownerOf(currentId) == msg.sender) {
+                itemCount += 1;
+            }
+        }
+
+        AuctionItem[] memory items = new AuctionItem[](itemCount);
+        for (uint i = 0; i < totalItemCount; i++) {
+            uint currentId = _listedTokenIds.at(i);
+            if (NFT.ownerOf(currentId) == msg.sender) {
+                AuctionItem memory currentItem = idToAuctionItem[
+                    tokenToAuctionId[currentId]
+                ];
+                items[currentIndex] = currentItem;
+                currentIndex += 1;
+            }
+        }
+        return items;
+    }
+
+    function fetchItemsListed() public view returns (AuctionItem[] memory) {
+        uint totalItemCount = _listedTokenIds.length();
+        uint itemCount = 0;
+        uint currentIndex = 0;
+
+        for (uint i = 0; i < totalItemCount; i++) {
+            if (
+                idToAuctionItem[tokenToAuctionId[_listedTokenIds.at(i)]]
+                    .seller == msg.sender
+            ) {
+                itemCount += 1;
+            }
+        }
+
+        AuctionItem[] memory items = new AuctionItem[](itemCount);
+        for (uint i = 0; i < totalItemCount; i++) {
+            uint currentId = _listedTokenIds.at(i);
+            if (
+                idToAuctionItem[tokenToAuctionId[currentId]].seller ==
+                msg.sender
+            ) {
+                AuctionItem storage currentItem = idToAuctionItem[
+                    tokenToAuctionId[currentId]
+                ];
+                items[currentIndex] = currentItem;
+                currentIndex += 1;
+            }
+        }
+        return items;
     }
 }

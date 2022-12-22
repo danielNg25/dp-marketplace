@@ -234,10 +234,12 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
 
         MarketItem memory item = idToMarketItem[tokenId];
 
-        uint price2 = item.sellpriceUSD.getUsdToken(
+        PriceConverter.PriceData memory priceData = PriceConverter.getPrice(
             paymentToken,
             feeInfo.aggregatorV3
         );
+
+        uint price2 = item.sellpriceUSD.getUsdToken(priceData);
         if (paymentToken == address(0)) {
             require(msg.value >= price2, "missing asking price");
             if (msg.value > price2) {
@@ -260,32 +262,22 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
             if (item.withPhysical == true) {
                 if ((item.sellpriceUSD) > (item.reservePriceUSD)) {
                     uint sr_USD = item.sellpriceUSD - item.reservePriceUSD;
-                    uint sr_Token = sr_USD.getOrgUsdToken(
-                        paymentToken,
-                        feeInfo.aggregatorV3
-                    );
+                    uint sr_Token = sr_USD.getOrgUsdToken(priceData);
                     charityTokenTotal += (sr_Token * 80) / 100;
                 }
 
                 uint r_USD = item.reservePriceUSD;
-                uint r_Token = r_USD.getOrgUsdToken(
-                    paymentToken,
-                    feeInfo.aggregatorV3
-                );
-                creatorToken = ((r_USD * 65) / 100).getOrgUsdToken(
-                    paymentToken,
-                    feeInfo.aggregatorV3
-                );
+                uint r_Token = r_USD.getOrgUsdToken(priceData);
+                creatorToken = ((r_USD * 65) / 100).getOrgUsdToken(priceData);
                 charityTokenTotal += (r_Token * 20) / 100;
 
                 web3reTokenTotal = price2 - creatorToken - charityTokenTotal;
             } else {
                 creatorToken = ((item.sellpriceUSD * 85) / 100).getOrgUsdToken(
-                    paymentToken,
-                    feeInfo.aggregatorV3
+                    priceData
                 );
                 charityTokenTotal = ((item.sellpriceUSD * 10) / 100)
-                    .getOrgUsdToken(paymentToken, feeInfo.aggregatorV3);
+                    .getOrgUsdToken(priceData);
                 web3reTokenTotal = price2 - creatorToken - charityTokenTotal;
             }
             if (paymentToken == address(0)) {
@@ -306,20 +298,18 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
             if (item.isCustodianWallet == true) {
                 if (item.royalty >= 2) {
                     creatorToken = ((item.sellpriceUSD * 2) / 100)
-                        .getOrgUsdToken(paymentToken, feeInfo.aggregatorV3);
+                        .getOrgUsdToken(priceData);
                 }
             } else {
                 creatorToken = ((item.sellpriceUSD * item.royalty) / 100)
-                    .getOrgUsdToken(paymentToken, feeInfo.aggregatorV3);
+                    .getOrgUsdToken(priceData);
             }
 
             sellerToken = ((item.sellpriceUSD * 80) / 100).getOrgUsdToken(
-                paymentToken,
-                feeInfo.aggregatorV3
+                priceData
             );
             charityTokenTotal = ((item.sellpriceUSD * 10) / 100).getOrgUsdToken(
-                    paymentToken,
-                    feeInfo.aggregatorV3
+                    priceData
                 );
             web3reTokenTotal =
                 price2 -
@@ -397,9 +387,12 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
             .getPaymentMethodDetail(paymentToken);
         uint256 priceR = 0;
         if (isSupported) {
-            priceR = idToMarketItem[tokenId].sellpriceUSD.getUsdToken(
+            PriceConverter.PriceData memory priceData = PriceConverter.getPrice(
                 paymentToken,
                 aggregatorV3
+            );
+            priceR = idToMarketItem[tokenId].sellpriceUSD.getUsdToken(
+                priceData
             );
         }
         return (isSupported, priceR);
