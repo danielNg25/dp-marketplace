@@ -5,6 +5,7 @@ import "./libraries/PriceConverter.sol";
 import "./libraries/DPFeeManagerStruct.sol";
 import "./DPNFT.sol";
 import "./interface/IDPFeeManager.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -12,6 +13,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
     using Counters for Counters.Counter;
     using EnumerableSet for EnumerableSet.UintSet;
     using PriceConverter for uint256;
@@ -50,8 +52,37 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         uint256 sellpriceUSD,
         uint256 reservePriceUSD,
         uint256 price,
-        bool initialList,
-        bool sold
+        bool initialList
+    );
+    event MarketItemResold(
+        uint256 indexed tokenId,
+        address seller,
+        address c_Wallet,
+        bool isCustodianWallet,
+        uint8 royalty,
+        bool withPhysical,
+        uint256 sellpriceUSD,
+        uint256 reservePriceUSD,
+        uint256 price,
+        bool initialList
+    );
+    event MarketItemSold(
+        uint256 indexed tokenId,
+        address seller,
+        address buyer,
+        address c_Wallet,
+        address charity,
+        address web3re,
+        address paymentToken,
+        uint80 oracleRoundId,
+        uint256 sellpriceUSD,
+        uint256 sellPriceToken,
+        uint256 reservePriceUSD,
+        uint256 reservePriceToken,
+        uint256 buyerAmountToken,
+        uint256 c_WalletAmountToken,
+        uint256 charityAmountToken,
+        uint256 web3reAmountToken
     );
 
     /* ========== MODIFIERS ========== */
@@ -68,8 +99,20 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         _transferOwnership(contractOwner_);
     }
 
-    function withdraw() external payable nonReentrant onlyOwner {
-        payable(msg.sender).transfer(address(this).balance);
+    function withdrawFunds(
+        address payable receiver,
+        address token
+    ) external payable nonReentrant onlyOwner {
+        uint256 withdrawAmount;
+        if (token == address(0)) {
+            withdrawAmount = address(this).balance;
+            require(withdrawAmount > 0, "Nothing to withdraw");
+            receiver.transfer(withdrawAmount);
+        } else {
+            withdrawAmount = IERC20(token).balanceOf(address(this));
+            require(withdrawAmount > 0, "Nothing to withdraw");
+            IERC20(token).safeTransfer(receiver, withdrawAmount);
+        }
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -100,6 +143,18 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
 
         createMarketItem(
             newTokenId,
+            c_Wallet,
+            isCustodianWallet,
+            royalty,
+            withPhysical,
+            sellpriceUSD,
+            reservePriceUSD,
+            price,
+            true
+        );
+        emit MarketItemCreated(
+            newTokenId,
+            msg.sender,
             c_Wallet,
             isCustodianWallet,
             royalty,
@@ -141,19 +196,6 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
 
         _approveAddress(tokenId);
         NFT.transferFrom(msg.sender, address(this), tokenId);
-        emit MarketItemCreated(
-            tokenId,
-            msg.sender,
-            c_Wallet,
-            isCustodianWallet,
-            royalty,
-            withPhysical,
-            sellpriceUSD,
-            reservePriceUSD,
-            price,
-            true,
-            false
-        );
     }
 
     function resellToken(
@@ -162,10 +204,11 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         uint256 price,
         bool _unlist
     ) external payable nonReentrant {
+        MarketItem memory marketItem = idToMarketItem[tokenId];
         if (_unlist) {
             require(
-                msg.sender == idToMarketItem[tokenId].seller &&
-                    idToMarketItem[tokenId].initialList == false,
+                msg.sender == marketItem.seller &&
+                    marketItem.initialList == false,
                 "Only s may unlist"
             );
             idToMarketItem[tokenId].sold = true;
@@ -173,10 +216,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
             _itemsSold.increment();
             NFT.transferFrom(address(this), msg.sender, tokenId);
         } else {
-            require(
-                idToMarketItem[tokenId].sold == true,
-                "Can not resell unsold item"
-            );
+            require(marketItem.sold == true, "Can not resell unsold item");
             require(NFT.ownerOf(tokenId) == msg.sender, "Only item o");
             require(
                 msg.value == FeeManager.getListingPriceSecondary(),
@@ -190,6 +230,19 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
             _itemsSold.decrement();
             _approveAddress(tokenId);
             NFT.transferFrom(msg.sender, address(this), tokenId);
+
+            emit MarketItemResold(
+                tokenId,
+                msg.sender,
+                marketItem.c_Wallet,
+                marketItem.isCustodianWallet,
+                marketItem.royalty,
+                marketItem.withPhysical,
+                sellpriceUSD,
+                marketItem.reservePriceUSD,
+                price,
+                marketItem.initialList
+            );
         }
     }
 
@@ -211,6 +264,19 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
         createMarketItem(
             tokenId,
             payable(c_Wallet),
+            isCustodianWallet,
+            royalty,
+            false,
+            sellpriceUSD,
+            0,
+            price,
+            false
+        );
+
+        emit MarketItemCreated(
+            tokenId,
+            msg.sender,
+            c_Wallet,
             isCustodianWallet,
             royalty,
             false,
@@ -246,7 +312,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
                 payable(msg.sender).transfer(msg.value - price2);
             }
         } else {
-            IERC20(paymentToken).transferFrom(
+            IERC20(paymentToken).safeTransferFrom(
                 msg.sender,
                 address(this),
                 price2
@@ -285,15 +351,36 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
                 payable(item.c_Wallet).transfer(creatorToken);
                 payable(feeInfo.web3re).transfer(web3reTokenTotal);
             } else {
-                IERC20(paymentToken).transfer(
+                IERC20(paymentToken).safeTransfer(
                     feeInfo.charity,
                     charityTokenTotal
                 );
-                IERC20(paymentToken).transfer(item.c_Wallet, creatorToken);
-                IERC20(paymentToken).transfer(feeInfo.web3re, web3reTokenTotal);
+                IERC20(paymentToken).safeTransfer(item.c_Wallet, creatorToken);
+                IERC20(paymentToken).safeTransfer(
+                    feeInfo.web3re,
+                    web3reTokenTotal
+                );
             }
 
             _itemsSold.increment();
+            emit MarketItemSold(
+                tokenId,
+                item.seller,
+                msg.sender,
+                item.c_Wallet,
+                feeInfo.charity,
+                feeInfo.web3re,
+                paymentToken,
+                priceData.oracleRoundId,
+                item.sellpriceUSD,
+                price2,
+                item.reservePriceUSD,
+                item.reservePriceUSD.getOrgUsdToken(priceData),
+                sellerToken,
+                creatorToken,
+                charityTokenTotal,
+                web3reTokenTotal
+            );
         } else {
             if (item.isCustodianWallet == true) {
                 if (item.royalty >= 2) {
@@ -322,16 +409,37 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard {
                 payable(feeInfo.charity).transfer(charityTokenTotal);
                 payable(feeInfo.web3re).transfer(web3reTokenTotal);
             } else {
-                IERC20(paymentToken).transfer(item.c_Wallet, creatorToken);
-                IERC20(paymentToken).transfer(item.seller, sellerToken);
-                IERC20(paymentToken).transfer(
+                IERC20(paymentToken).safeTransfer(item.c_Wallet, creatorToken);
+                IERC20(paymentToken).safeTransfer(item.seller, sellerToken);
+                IERC20(paymentToken).safeTransfer(
                     feeInfo.charity,
                     charityTokenTotal
                 );
-                IERC20(paymentToken).transfer(feeInfo.web3re, web3reTokenTotal);
+                IERC20(paymentToken).safeTransfer(
+                    feeInfo.web3re,
+                    web3reTokenTotal
+                );
             }
 
             _itemsSold.increment();
+            emit MarketItemSold(
+                tokenId,
+                item.seller,
+                msg.sender,
+                item.c_Wallet,
+                feeInfo.charity,
+                feeInfo.web3re,
+                paymentToken,
+                priceData.oracleRoundId,
+                item.sellpriceUSD,
+                price2,
+                item.reservePriceUSD,
+                item.reservePriceUSD.getOrgUsdToken(priceData),
+                sellerToken,
+                creatorToken,
+                charityTokenTotal,
+                web3reTokenTotal
+            );
         }
 
         idToMarketItem[tokenId].sold = true;
