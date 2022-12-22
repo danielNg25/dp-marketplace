@@ -1051,8 +1051,8 @@ describe("Marketplace", () => {
                         value: listingPrice,
                     }
                 );
-            await expect(marketplace.connect(user2).withdraw()).to.revertedWith("Ownable: caller is not the owner");
-            await expect(() => marketplace.withdraw()).to.changeEtherBalances(
+            await expect(marketplace.connect(user2).withdrawFunds(owner.address, ADDRESS_ZERO)).to.revertedWith("Ownable: caller is not the owner");
+            await expect(() => marketplace.withdrawFunds(owner.address, ADDRESS_ZERO)).to.changeEtherBalances(
                 [marketplace, owner],
                 [listingPrice.mul(-1), listingPrice]
             );
