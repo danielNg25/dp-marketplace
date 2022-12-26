@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 contract AggregatorV3Test {
-    int private _answer = 88942317;
+    int public _answer;
     uint8 private _decimals = 8;
 
     constructor(int answer_, uint8 decimals_) {

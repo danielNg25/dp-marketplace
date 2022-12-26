@@ -13,7 +13,6 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "hardhat/console.sol";
 
 contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
@@ -131,7 +130,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     event BidCanceled(uint256 indexed bidId);
     event FundsWithdrawed(address receiver, address token, uint256 amount);
 
-    event minPriceIncreasePercentUpdated(
+    event MinPriceIncreasePercentUpdated(
         uint256 oldMinPriceIncreasePercent,
         uint256 newMinPriceIncreasePercent
     );
@@ -179,7 +178,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         );
         minPriceIncreasePercent = newMinPriceIncreasePercent;
 
-        emit minPriceIncreasePercentUpdated(
+        emit MinPriceIncreasePercentUpdated(
             oldMinPriceIncreasePercent,
             newMinPriceIncreasePercent
         );
@@ -234,7 +233,11 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     function createAuctionItem(AuctionCreateParams memory params) internal {
         require(params.price > 0, "Price must be at least 1 wei");
-        require(params.endTime > params.startTime && params.startTime >= block.timestamp, "Invalid time");
+        require(
+            params.endTime > params.startTime &&
+                params.startTime >= block.timestamp,
+            "Invalid time"
+        );
         _listedTokenIds.add(params.tokenId);
 
         totalAuctions++;
@@ -472,7 +475,6 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                         bidItem.reservePriceToken;
                     charityTokenTotal += (sr_Token * 80) / 100;
                 }
-                
 
                 creatorToken = (bidItem.reservePriceToken * 65) / 100;
                 charityTokenTotal += (bidItem.reservePriceToken * 20) / 100;
@@ -568,7 +570,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 auctionId = tokenToAuctionId[bidItem.tokenId];
         AuctionItem memory auctionItem = idToAuctionItem[auctionId];
 
-        require(bidItem.bidder == msg.sender, "Not bidder");
+        require(bidItem.bidder == msg.sender, "Only bidder");
 
         require(
             block.timestamp >= auctionItem.startTime &&
@@ -669,13 +671,13 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         AuctionItem memory auctionItem = idToAuctionItem[auctionId];
 
         require(block.timestamp < auctionItem.startTime, "Auction started");
+        require(!auctionItem.sold, "Auction canceled");
         require(
             auctionItem.seller == msg.sender && !auctionItem.initialList,
             "Only item owner and not initialList"
         );
-        require(!auctionItem.sold, "Auction canceled");
 
-        idToAuctionItem[tokenId].sold = true;
+        idToAuctionItem[auctionId].sold = true;
         _itemsSold.increment();
         NFT.transferFrom(address(this), msg.sender, tokenId);
         emit AuctionCanceled(tokenId);
@@ -683,14 +685,15 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     function cancelBid(uint256 bidId) external nonReentrant whenNotPaused {
         BidItem memory bidItem = idToBidItem[bidId];
-        
+
         require(bidItem.status == BidStatus.Lived, "Bid closed");
         require(bidItem.bidder == msg.sender, "Only bidder");
 
-        AuctionItem memory auctionItem = idToAuctionItem[tokenToAuctionId[bidItem.tokenId]];
-        require(!auctionItem.sold &&
-            auctionItem.highestBidId !=
-                bidId,
+        AuctionItem memory auctionItem = idToAuctionItem[
+            tokenToAuctionId[bidItem.tokenId]
+        ];
+        require(
+            auctionItem.sold || auctionItem.highestBidId != bidId,
             "Can not cancel highest bid"
         );
 
@@ -714,9 +717,9 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         AuctionItem memory auctionItem = idToAuctionItem[auctionId];
 
         require(auctionItem.seller == msg.sender, "Only auction owner");
+        require(!auctionItem.sold, "Auction canceled");
         require(auctionItem.endTime < block.timestamp, "Auction not end");
         require(auctionItem.listBidId.length == 0, "Auction already bidden");
-        require(!auctionItem.sold, "Auction canceled");
 
         _itemsSold.increment();
 
@@ -737,7 +740,8 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 tokenId
     ) external nonReentrant whenNotPaused {
         if (_listedTokenIds.contains(tokenId)) {
-            idToAuctionItem[tokenId].sold = true;
+            uint256 auctionId = tokenToAuctionId[tokenId];
+            idToAuctionItem[auctionId].sold = true;
             if (_from == address(this)) {
                 _itemsSold.increment();
             }

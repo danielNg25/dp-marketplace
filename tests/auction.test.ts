@@ -1,5 +1,5 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { expect } from "chai";
+import { expect, use } from "chai";
 import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 
@@ -20,7 +20,8 @@ import { parseEther } from "ethers/lib/utils";
 describe("Auction", () => {
     const PERCENT_BASIS_POINT = BigNumber.from("10000");
     const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
-    const TOKEN_PRICE = 88942317;
+    const TOKEN_PRICE = 10942317;
+    const TOKEN_PRICE_LOW = 88942317;
     const ROUND_ID = 25012000;
     const TOKEN_DECIMALS_24 = 24;
     const TOKEN_DECIMALS_18 = 18;
@@ -99,523 +100,553 @@ describe("Auction", () => {
         await mockERC20Token_24Decimals.connect(user4).approve(auction.address, parseEther("100000000000"));
     });
 
-    // describe("Deployment", () => {
-    //     it("Should deploy successfully", async () => {
-    //         expect(await auction.NFT()).to.equal(nft.address);
-    //         expect(await auction.FeeManager()).to.equal(feeManager.address);
-    //     });
-    // });
+    describe("Deployment", () => {
+        it("Should deploy successfully", async () => {
+            expect(await auction.NFT()).to.equal(nft.address);
+            expect(await auction.FeeManager()).to.equal(feeManager.address);
+        });
+    });
 
-    // describe("createToken", () => {
-    //     let timestamp: number;
-    //     beforeEach(async () => {
-    //         timestamp = (await ethers.provider.getBlock("latest")).timestamp;
-    //     });
-    //     it("Should failed - Start price must be >= reserve price", async () => {
-    //         await expect(
-    //             auction.createToken(
-    //                 "google.com",
-    //                 creator.address,
-    //                 true,
-    //                 5,
-    //                 true,
-    //                 parseEther("0.05"),
-    //                 parseEther("0.1"),
-    //                 timestamp,
-    //                 timestamp + 86400,
-    //                 parseEther("0.0001"),
-    //                 { value: listingPrice }
-    //             )
-    //         ).to.revertedWith("Start price must be >= reserve price");
-    //     });
+    describe("createToken", () => {
+        let timestamp: number;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+        });
+        it("Should failed - Start price must be >= reserve price", async () => {
+            await expect(
+                auction.createToken(
+                    "google.com",
+                    creator.address,
+                    true,
+                    5,
+                    true,
+                    parseEther("0.05"),
+                    parseEther("0.1"),
+                    timestamp,
+                    timestamp + 86400,
+                    parseEther("0.0001"),
+                    { value: listingPrice }
+                )
+            ).to.revertedWith("Start price must be >= reserve price");
+        });
 
-    //     it("Should failed - Price must be at least 1 wei", async () => {
-    //         await expect(
-    //             auction.createToken(
-    //                 "google.com",
-    //                 creator.address,
-    //                 true,
-    //                 5,
-    //                 true,
-    //                 parseEther("0.1"),
-    //                 parseEther("0.05"),
-    //                 timestamp,
-    //                 timestamp + 86400,
-    //                 0,
-    //                 { value: listingPrice }
-    //             )
-    //         ).to.revertedWith("Price must be at least 1 wei");
-    //     });
+        it("Should failed - Price must be at least 1 wei", async () => {
+            await expect(
+                auction.createToken(
+                    "google.com",
+                    creator.address,
+                    true,
+                    5,
+                    true,
+                    parseEther("0.1"),
+                    parseEther("0.05"),
+                    timestamp,
+                    timestamp + 86400,
+                    0,
+                    { value: listingPrice }
+                )
+            ).to.revertedWith("Price must be at least 1 wei");
+        });
 
-    //     it("Should failed - Value must be = listing price", async () => {
-    //         await expect(
-    //             auction.createToken(
-    //                 "google.com",
-    //                 creator.address,
-    //                 true,
-    //                 5,
-    //                 true,
-    //                 parseEther("0.1"),
-    //                 parseEther("0.05"),
-    //                 timestamp,
-    //                 timestamp + 86400,
-    //                 parseEther("0.0001"),
-    //                 { value: listingPrice.sub(1) }
-    //             )
-    //         ).to.revertedWith("Value must be = listing price");
-    //     });
+        it("Should failed - Value must be = listing price", async () => {
+            await expect(
+                auction.createToken(
+                    "google.com",
+                    creator.address,
+                    true,
+                    5,
+                    true,
+                    parseEther("0.1"),
+                    parseEther("0.05"),
+                    timestamp,
+                    timestamp + 86400,
+                    parseEther("0.0001"),
+                    { value: listingPrice.sub(1) }
+                )
+            ).to.revertedWith("Value must be = listing price");
+        });
 
-    //     it("Should failed - Invalid time", async () => {
-    //         await expect(
-    //             auction.createToken(
-    //                 "google.com",
-    //                 creator.address,
-    //                 true,
-    //                 5,
-    //                 true,
-    //                 parseEther("0.1"),
-    //                 parseEther("0.05"),
-    //                 timestamp + 86400,
-    //                 timestamp,
-    //                 parseEther("0.0001"),
-    //                 { value: listingPrice }
-    //             )
-    //         ).to.revertedWith("Invalid time");
+        it("Should failed - Invalid time", async () => {
+            await expect(
+                auction.createToken(
+                    "google.com",
+                    creator.address,
+                    true,
+                    5,
+                    true,
+                    parseEther("0.1"),
+                    parseEther("0.05"),
+                    timestamp + 86400,
+                    timestamp,
+                    parseEther("0.0001"),
+                    { value: listingPrice }
+                )
+            ).to.revertedWith("Invalid time");
 
-    //         await expect(
-    //             auction.createToken(
-    //                 "google.com",
-    //                 creator.address,
-    //                 true,
-    //                 5,
-    //                 true,
-    //                 parseEther("0.1"),
-    //                 parseEther("0.05"),
-    //                 timestamp - 1,
-    //                 timestamp + 86400,
-    //                 parseEther("0.0001"),
-    //                 { value: listingPrice }
-    //             )
-    //         ).to.revertedWith("Invalid time");
-    //     });
+            await expect(
+                auction.createToken(
+                    "google.com",
+                    creator.address,
+                    true,
+                    5,
+                    true,
+                    parseEther("0.1"),
+                    parseEther("0.05"),
+                    timestamp - 1,
+                    timestamp + 86400,
+                    parseEther("0.0001"),
+                    { value: listingPrice }
+                )
+            ).to.revertedWith("Invalid time");
+        });
 
-    //     it("Should createToken successfully", async () => {
-    //         await auction.createToken(
-    //             "google.com",
-    //             creator.address,
-    //             true,
-    //             5,
-    //             true,
-    //             parseEther("0.1"),
-    //             parseEther("0.05"),
-    //             timestamp,
-    //             timestamp + 86400,
-    //             parseEther("0.0001"),
-    //             { value: listingPrice }
-    //         );
+        it("Should createToken successfully", async () => {
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                true,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
 
-    //         const auctionItem = await auction.getAuctionById(1);
+            const auctionItem = await auction.getAuctionById(1);
 
-    //         expect(auctionItem.tokenId).to.equal(1);
-    //         expect(auctionItem.seller).to.equal(owner.address);
-    //         expect(auctionItem.c_Wallet).to.equal(creator.address);
-    //         expect(auctionItem.isCustodianWallet).to.be.true;
-    //         expect(auctionItem.royalty).to.equal(5);
-    //         expect(auctionItem.withPhysical).to.be.true;
-    //         expect(auctionItem.startPriceUSD).to.equal(parseEther("0.1"));
-    //         expect(auctionItem.reservePriceUSD).to.equal(parseEther("0.05"));
-    //         expect(auctionItem.price).to.equal(parseEther("0.0001"));
-    //         expect(auctionItem.initialList).to.be.true;
-    //         expect(auctionItem.sold).to.be.false;
-    //         expect(auctionItem.startTime).to.equal(timestamp);
-    //         expect(auctionItem.endTime).to.equal(timestamp + 86400);
-    //         expect(auctionItem.listBidId.length).to.equal(0);
-    //         expect(auctionItem.highestBidId).to.equal(0);
+            expect(auctionItem.tokenId).to.equal(1);
+            expect(auctionItem.seller).to.equal(owner.address);
+            expect(auctionItem.c_Wallet).to.equal(creator.address);
+            expect(auctionItem.isCustodianWallet).to.be.true;
+            expect(auctionItem.royalty).to.equal(5);
+            expect(auctionItem.withPhysical).to.be.true;
+            expect(auctionItem.startPriceUSD).to.equal(parseEther("0.1"));
+            expect(auctionItem.reservePriceUSD).to.equal(parseEther("0.05"));
+            expect(auctionItem.price).to.equal(parseEther("0.0001"));
+            expect(auctionItem.initialList).to.be.true;
+            expect(auctionItem.sold).to.be.false;
+            expect(auctionItem.startTime).to.equal(timestamp + 1000);
+            expect(auctionItem.endTime).to.equal(timestamp + 86400);
+            expect(auctionItem.listBidId.length).to.equal(0);
+            expect(auctionItem.highestBidId).to.equal(0);
 
-    //         expect(await auction.totalAuctions()).to.equal(1);
-    //     });
-    // });
+            expect(await auction.totalAuctions()).to.equal(1);
+        });
+    });
 
-    // describe("reAuctionToken", () => {
-    //     let timestamp: number;
-    //     beforeEach(async () => {
-    //         timestamp = (await ethers.provider.getBlock("latest")).timestamp;
-    //         await auction.createToken(
-    //             "google.com",
-    //             creator.address,
-    //             true,
-    //             5,
-    //             true,
-    //             parseEther("0.1"),
-    //             parseEther("0.05"),
-    //             timestamp,
-    //             timestamp + 86400,
-    //             parseEther("0.0001"),
-    //             { value: listingPrice }
-    //         );
+    describe("reAuctionToken", () => {
+        let timestamp: number;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                true,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
 
-    //         await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
-    //     });
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
+        });
 
-    //     it("Should failed - Can not reAuction unsold item", async () => {
-    //         await auction.createToken(
-    //             "google.com",
-    //             creator.address,
-    //             true,
-    //             5,
-    //             true,
-    //             parseEther("0.1"),
-    //             parseEther("0.05"),
-    //             timestamp,
-    //             timestamp + 86400,
-    //             parseEther("0.0001"),
-    //             { value: listingPrice }
-    //         );
+        it("Should failed - Can not reAuction unsold item", async () => {
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                true,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
 
-    //         await expect(
-    //             auction.reAuctionToken(2, parseEther("0.1"), parseEther("0.0001"), timestamp, timestamp + 86400, {
-    //                 value: listingPriceSecondary,
-    //             })
-    //         ).to.revertedWith("Can not reAuction unsold item");
-    //     });
+            await expect(
+                auction.reAuctionToken(
+                    2,
+                    parseEther("0.1"),
+                    parseEther("0.0001"),
+                    timestamp + 1000,
+                    timestamp + 86400,
+                    {
+                        value: listingPriceSecondary,
+                    }
+                )
+            ).to.revertedWith("Can not reAuction unsold item");
+        });
 
-    //     it("Should failed - Only item owner", async () => {
-    //         await expect(
-    //             auction.reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp, timestamp + 86400, {
-    //                 value: listingPriceSecondary,
-    //             })
-    //         ).to.revertedWith("Only item owner");
-    //     });
+        it("Should failed - Only item owner", async () => {
+            await expect(
+                auction.reAuctionToken(
+                    1,
+                    parseEther("0.1"),
+                    parseEther("0.0001"),
+                    timestamp + 1000,
+                    timestamp + 86400,
+                    {
+                        value: listingPriceSecondary,
+                    }
+                )
+            ).to.revertedWith("Only item owner");
+        });
 
-    //     it("Should failed - Price must be at least 1 wei", async () => {
-    //         await expect(
-    //             auction.connect(user1).reAuctionToken(1, parseEther("0.1"), 0, timestamp, timestamp + 86400, {
-    //                 value: listingPriceSecondary,
-    //             })
-    //         ).to.revertedWith("Price must be at least 1 wei");
-    //     });
+        it("Should failed - Price must be at least 1 wei", async () => {
+            await expect(
+                auction.connect(user1).reAuctionToken(1, parseEther("0.1"), 0, timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                })
+            ).to.revertedWith("Price must be at least 1 wei");
+        });
 
-    //     it("Should failed - Value must be = Secondary list price", async () => {
-    //         await expect(
-    //             auction
-    //                 .connect(user1)
-    //                 .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp, timestamp + 86400, {
-    //                     value: listingPriceSecondary.sub(1),
-    //                 })
-    //         ).to.revertedWith("Value must be = Secondary list price");
-    //     });
+        it("Should failed - Value must be = Secondary list price", async () => {
+            await expect(
+                auction
+                    .connect(user1)
+                    .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                        value: listingPriceSecondary.sub(1),
+                    })
+            ).to.revertedWith("Value must be = Secondary list price");
+        });
 
-    //     it("Should reAuction successfully", async () => {
-    //         await auction
-    //             .connect(user1)
-    //             .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp, timestamp + 86400, {
-    //                 value: listingPriceSecondary,
-    //             });
+        it("Should reAuction successfully", async () => {
+            await auction
+                .connect(user1)
+                .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                });
 
-    //         const auctionItem = await auction.getAuctionById(2);
+            const auctionItem = await auction.getAuctionById(2);
 
-    //         expect(auctionItem.tokenId).to.equal(1);
-    //         expect(auctionItem.seller).to.equal(user1.address);
-    //         expect(auctionItem.c_Wallet).to.equal(creator.address);
-    //         expect(auctionItem.isCustodianWallet).to.be.true;
-    //         expect(auctionItem.royalty).to.equal(5);
-    //         expect(auctionItem.withPhysical).to.be.false;
-    //         expect(auctionItem.startPriceUSD).to.equal(parseEther("0.1"));
-    //         expect(auctionItem.reservePriceUSD).to.equal(0);
-    //         expect(auctionItem.price).to.equal(parseEther("0.0001"));
-    //         expect(auctionItem.initialList).to.be.false;
-    //         expect(auctionItem.sold).to.be.false;
-    //         expect(auctionItem.startTime).to.equal(timestamp);
-    //         expect(auctionItem.endTime).to.equal(timestamp + 86400);
-    //         expect(auctionItem.listBidId.length).to.equal(0);
-    //         expect(auctionItem.highestBidId).to.equal(0);
+            expect(auctionItem.tokenId).to.equal(1);
+            expect(auctionItem.seller).to.equal(user1.address);
+            expect(auctionItem.c_Wallet).to.equal(creator.address);
+            expect(auctionItem.isCustodianWallet).to.be.true;
+            expect(auctionItem.royalty).to.equal(5);
+            expect(auctionItem.withPhysical).to.be.false;
+            expect(auctionItem.startPriceUSD).to.equal(parseEther("0.1"));
+            expect(auctionItem.reservePriceUSD).to.equal(0);
+            expect(auctionItem.price).to.equal(parseEther("0.0001"));
+            expect(auctionItem.initialList).to.be.false;
+            expect(auctionItem.sold).to.be.false;
+            expect(auctionItem.startTime).to.equal(timestamp + 1000);
+            expect(auctionItem.endTime).to.equal(timestamp + 86400);
+            expect(auctionItem.listBidId.length).to.equal(0);
+            expect(auctionItem.highestBidId).to.equal(0);
 
-    //         expect(await auction.totalAuctions()).to.equal(2);
-    //     });
-    // });
+            expect(await auction.totalAuctions()).to.equal(2);
+        });
+    });
 
-    // describe("createExternalMintedItem", () => {
-    //     let timestamp: number;
-    //     beforeEach(async () => {
-    //         timestamp = (await ethers.provider.getBlock("latest")).timestamp;
-    //         await nft.setAdministratorStatus(minter.address, true);
-    //         await nft.connect(minter).mint(user1.address, "");
-    //     });
+    describe("createExternalMintedItem", () => {
+        let timestamp: number;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await nft.setAdministratorStatus(minter.address, true);
+            await nft.connect(minter).mint(user1.address, "");
+        });
 
-    //     it("Should failed - Only item owner", async () => {
-    //         await expect(
-    //             auction
-    //                 .connect(user2)
-    //                 .createExternalMintedItem(
-    //                     1,
-    //                     creator.address,
-    //                     true,
-    //                     5,
-    //                     parseEther("0.1"),
-    //                     parseEther("0.001"),
-    //                     timestamp,
-    //                     timestamp + 86400,
-    //                     { value: listingPriceSecondary }
-    //                 )
-    //         ).to.revertedWith("Only item owner");
-    //     });
+        it("Should failed - Only item owner", async () => {
+            await expect(
+                auction
+                    .connect(user2)
+                    .createExternalMintedItem(
+                        1,
+                        creator.address,
+                        true,
+                        5,
+                        parseEther("0.1"),
+                        parseEther("0.001"),
+                        timestamp,
+                        timestamp + 86400,
+                        { value: listingPriceSecondary }
+                    )
+            ).to.revertedWith("Only item owner");
+        });
 
-    //     it("Should failed - Value must be = Secondary list price", async () => {
-    //         await expect(
-    //             auction
-    //                 .connect(user1)
-    //                 .createExternalMintedItem(
-    //                     1,
-    //                     creator.address,
-    //                     true,
-    //                     5,
-    //                     parseEther("0.1"),
-    //                     parseEther("0.001"),
-    //                     timestamp,
-    //                     timestamp + 86400,
-    //                     { value: listingPriceSecondary.sub(1) }
-    //                 )
-    //         ).to.revertedWith("Value must be = Secondary list price");
-    //     });
+        it("Should failed - Value must be = Secondary list price", async () => {
+            await expect(
+                auction
+                    .connect(user1)
+                    .createExternalMintedItem(
+                        1,
+                        creator.address,
+                        true,
+                        5,
+                        parseEther("0.1"),
+                        parseEther("0.001"),
+                        timestamp,
+                        timestamp + 86400,
+                        { value: listingPriceSecondary.sub(1) }
+                    )
+            ).to.revertedWith("Value must be = Secondary list price");
+        });
 
-    //     it("Should failed - Item already listed", async () => {
-    //         await auction.createToken(
-    //             "google.com",
-    //             creator.address,
-    //             true,
-    //             5,
-    //             true,
-    //             parseEther("0.1"),
-    //             parseEther("0.05"),
-    //             timestamp,
-    //             timestamp + 86400,
-    //             parseEther("0.0001"),
-    //             { value: listingPrice }
-    //         );
+        it("Should failed - Item already listed", async () => {
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                true,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
 
-    //         await auction.connect(owner).transferNFTTo(auction.address, user1.address, 2);
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 2);
 
-    //         await expect(
-    //             auction
-    //                 .connect(user1)
-    //                 .createExternalMintedItem(
-    //                     2,
-    //                     creator.address,
-    //                     true,
-    //                     5,
-    //                     parseEther("0.1"),
-    //                     parseEther("0.001"),
-    //                     timestamp,
-    //                     timestamp + 86400,
-    //                     { value: listingPriceSecondary }
-    //                 )
-    //         ).to.revertedWith("Item already listed");
-    //     });
+            await expect(
+                auction
+                    .connect(user1)
+                    .createExternalMintedItem(
+                        2,
+                        creator.address,
+                        true,
+                        5,
+                        parseEther("0.1"),
+                        parseEther("0.001"),
+                        timestamp,
+                        timestamp + 86400,
+                        { value: listingPriceSecondary }
+                    )
+            ).to.revertedWith("Item already listed");
+        });
 
-    //     it("Should failed - Price must be at least 1 wei", async () => {
-    //         await expect(
-    //             auction
-    //                 .connect(user1)
-    //                 .createExternalMintedItem(
-    //                     1,
-    //                     creator.address,
-    //                     true,
-    //                     5,
-    //                     parseEther("0.1"),
-    //                     0,
-    //                     timestamp,
-    //                     timestamp + 86400,
-    //                     { value: listingPriceSecondary }
-    //                 )
-    //         ).to.revertedWith("Price must be at least 1 wei");
-    //     });
+        it("Should failed - Price must be at least 1 wei", async () => {
+            await expect(
+                auction
+                    .connect(user1)
+                    .createExternalMintedItem(
+                        1,
+                        creator.address,
+                        true,
+                        5,
+                        parseEther("0.1"),
+                        0,
+                        timestamp,
+                        timestamp + 86400,
+                        { value: listingPriceSecondary }
+                    )
+            ).to.revertedWith("Price must be at least 1 wei");
+        });
 
-    //     it("Should createExternalMintedAuctionToken successfully", async () => {
-    //         await auction
-    //             .connect(user1)
-    //             .createExternalMintedItem(
-    //                 1,
-    //                 creator.address,
-    //                 true,
-    //                 5,
-    //                 parseEther("0.1"),
-    //                 parseEther("0.001"),
-    //                 timestamp,
-    //                 timestamp + 86400,
-    //                 { value: listingPriceSecondary }
-    //             );
+        it("Should createExternalMintedAuctionToken successfully", async () => {
+            await auction
+                .connect(user1)
+                .createExternalMintedItem(
+                    1,
+                    creator.address,
+                    true,
+                    5,
+                    parseEther("0.1"),
+                    parseEther("0.001"),
+                    timestamp + 1000,
+                    timestamp + 86400,
+                    { value: listingPriceSecondary }
+                );
 
-    //         const auctionItem = await auction.getAuctionById(1);
+            const auctionItem = await auction.getAuctionById(1);
 
-    //         expect(auctionItem.tokenId).to.equal(1);
-    //         expect(auctionItem.seller).to.equal(user1.address);
-    //         expect(auctionItem.c_Wallet).to.equal(creator.address);
-    //         expect(auctionItem.isCustodianWallet).to.be.true;
-    //         expect(auctionItem.royalty).to.equal(5);
-    //         expect(auctionItem.withPhysical).to.be.false;
-    //         expect(auctionItem.startPriceUSD).to.equal(parseEther("0.1"));
-    //         expect(auctionItem.reservePriceUSD).to.equal(0);
-    //         expect(auctionItem.price).to.equal(parseEther("0.001"));
-    //         expect(auctionItem.initialList).to.be.false;
-    //         expect(auctionItem.sold).to.be.false;
-    //         expect(auctionItem.startTime).to.equal(timestamp);
-    //         expect(auctionItem.endTime).to.equal(timestamp + 86400);
-    //         expect(auctionItem.listBidId.length).to.equal(0);
-    //         expect(auctionItem.highestBidId).to.equal(0);
+            expect(auctionItem.tokenId).to.equal(1);
+            expect(auctionItem.seller).to.equal(user1.address);
+            expect(auctionItem.c_Wallet).to.equal(creator.address);
+            expect(auctionItem.isCustodianWallet).to.be.true;
+            expect(auctionItem.royalty).to.equal(5);
+            expect(auctionItem.withPhysical).to.be.false;
+            expect(auctionItem.startPriceUSD).to.equal(parseEther("0.1"));
+            expect(auctionItem.reservePriceUSD).to.equal(0);
+            expect(auctionItem.price).to.equal(parseEther("0.001"));
+            expect(auctionItem.initialList).to.be.false;
+            expect(auctionItem.sold).to.be.false;
+            expect(auctionItem.startTime).to.equal(timestamp + 1000);
+            expect(auctionItem.endTime).to.equal(timestamp + 86400);
+            expect(auctionItem.listBidId.length).to.equal(0);
+            expect(auctionItem.highestBidId).to.equal(0);
 
-    //         expect(await auction.totalAuctions()).to.equal(1);
-    //     });
-    // });
+            expect(await auction.totalAuctions()).to.equal(1);
+        });
+    });
 
-    // describe("bidToken", () => {
-    //     let timestamp: number;
-    //     beforeEach(async () => {
-    //         timestamp = (await ethers.provider.getBlock("latest")).timestamp;
-    //         await auction.createToken(
-    //             "google.com",
-    //             creator.address,
-    //             true,
-    //             5,
-    //             true,
-    //             parseEther("0.1"),
-    //             parseEther("0.05"),
-    //             timestamp + 0,
-    //             timestamp + 86400,
-    //             parseEther("0.0001"),
-    //             { value: listingPrice }
-    //         );
-    //     });
+    describe("bidToken", () => {
+        let timestamp: number;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                true,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+        });
 
-    //     it("Should failed - Not in auction time", async () => {
-    //         await auction.createToken(
-    //             "google.com",
-    //             creator.address,
-    //             true,
-    //             5,
-    //             true,
-    //             parseEther("0.1"),
-    //             parseEther("0.05"),
-    //             timestamp + 86400,
-    //             timestamp + 86400 * 2,
-    //             parseEther("0.0001"),
-    //             { value: listingPrice }
-    //         );
-    //         await expect(auction.connect(user1).bidToken(2, ADDRESS_ZERO, parseEther("1"))).to.revertedWith(
-    //             "Not in auction time"
-    //         );
-    //     });
+        it("Should failed - Not in auction time", async () => {
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                true,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 86400,
+                timestamp + 86400 * 2,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            await expect(auction.connect(user1).bidToken(2, ADDRESS_ZERO, parseEther("1"))).to.revertedWith(
+                "Not in auction time"
+            );
+        });
 
-    //     it("Should failed - Payment token not supported", async () => {
-    //         await expect(
-    //             auction.connect(user1).bidToken(1, mockERC20Token_18Decimals.address, parseEther("1"))
-    //         ).to.revertedWith("Payment token not supported");
-    //     });
+        it("Should failed - Payment token not supported", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await expect(
+                auction.connect(user1).bidToken(1, mockERC20Token_18Decimals.address, parseEther("1"))
+            ).to.revertedWith("Payment token not supported");
+        });
 
-    //     it("Should failed - Seller cannot bid", async () => {
-    //         await expect(auction.bidToken(1, ADDRESS_ZERO, parseEther("1"))).to.revertedWith("Seller cannot bid");
-    //     });
+        it("Should failed - Seller cannot bid", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await expect(auction.bidToken(1, ADDRESS_ZERO, parseEther("1"))).to.revertedWith("Seller cannot bid");
+        });
 
-    //     it("Should failed - Price lower than start price", async () => {
-    //         await expect(auction.connect(user1).bidToken(1, ADDRESS_ZERO, parseEther("0.09"))).to.revertedWith(
-    //             "Price lower than start price"
-    //         );
-    //     });
+        it("Should failed - Price lower than start price", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await expect(auction.connect(user1).bidToken(1, ADDRESS_ZERO, parseEther("0.09"))).to.revertedWith(
+                "Price lower than start price"
+            );
+        });
 
-    //     it("Should failed - Mising asking price - native token", async () => {
-    //         let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
-    //         await expect(
-    //             auction.connect(user1).bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount.sub(1) })
-    //         ).to.revertedWith("Mising asking price");
-    //     });
+        it("Should failed - Mising asking price - native token", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await expect(
+                auction.connect(user1).bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount.sub(1) })
+            ).to.revertedWith("Mising asking price");
+        });
 
-    //     it("Should bidToken successfully - native token", async () => {
-    //         let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
-    //         await auction.connect(user1).bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount });
+        it("Should bidToken successfully - native token", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user1).bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount });
 
-    //         let bidPriceToken = getUsdOrgToken(
-    //             parseEther("0.1"),
-    //             TOKEN_PRICE,
-    //             PRICE_FEED_DECIMALS_8,
-    //             TOKEN_DECIMALS_18
-    //         );
-    //         let bidPriceWithFeeToken = getUsdToken(
-    //             parseEther("0.1"),
-    //             TOKEN_PRICE,
-    //             PRICE_FEED_DECIMALS_8,
-    //             TOKEN_DECIMALS_18
-    //         );
-    //         let reservePriceToken = getUsdOrgToken(
-    //             parseEther("0.05"),
-    //             TOKEN_PRICE,
-    //             PRICE_FEED_DECIMALS_8,
-    //             TOKEN_DECIMALS_18
-    //         );
+            let bidPriceToken = getUsdOrgToken(
+                parseEther("0.1"),
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_18
+            );
+            let bidPriceWithFeeToken = getUsdToken(
+                parseEther("0.1"),
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_18
+            );
+            let reservePriceToken = getUsdOrgToken(
+                parseEther("0.05"),
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_18
+            );
 
-    //         let bidItem = await auction.getBidById(1);
+            let bidItem = await auction.getBidById(1);
 
-    //         expect(bidItem.tokenId).to.equal(1);
-    //         expect(bidItem.bidder).to.equal(user1.address);
-    //         expect(bidItem.paymentToken).to.equal(ADDRESS_ZERO);
-    //         expect(bidItem.bidPriceUSD).to.equal(parseEther("0.1"));
-    //         expect(bidItem.bidPriceToken).to.equal(bidPriceToken.sub(1));
-    //         expect(bidItem.bidPriceWithFeeToken).to.equal(bidPriceWithFeeToken);
-    //         expect(bidItem.reservePriceToken).to.equal(reservePriceToken);
-    //         expect(bidItem.oracleRoundId).to.equal(ROUND_ID);
-    //         expect(bidItem.status).to.equal(0);
+            expect(bidItem.tokenId).to.equal(1);
+            expect(bidItem.bidder).to.equal(user1.address);
+            expect(bidItem.paymentToken).to.equal(ADDRESS_ZERO);
+            expect(bidItem.bidPriceUSD).to.equal(parseEther("0.1"));
+            expect(bidItem.bidPriceToken).to.equal(bidPriceToken.sub(1));
+            expect(bidItem.bidPriceWithFeeToken).to.equal(bidPriceWithFeeToken);
+            expect(bidItem.reservePriceToken).to.equal(reservePriceToken);
+            expect(bidItem.oracleRoundId).to.equal(ROUND_ID);
+            expect(bidItem.status).to.equal(0);
 
-    //         expect(await auction.totalBids()).to.equal(1);
-    //     });
+            expect(await auction.totalBids()).to.equal(1);
+        });
 
-    //     it("Should failed - Price less than min price", async () => {
-    //         let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
-    //         await auction.connect(user1).bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount });
+        it("Should failed - Price less than min price", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user1).bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount });
 
-    //         await expect(
-    //             auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount })
-    //         ).to.revertedWith("Price less than min price");
-    //     });
+            await expect(
+                auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount })
+            ).to.revertedWith("Price less than min price");
+        });
 
-    //     it("Should bidToken successfully - 18 decimals token", async () => {
-    //         await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
-    //         let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
-    //         await expect(() =>
-    //             auction.connect(user1).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.1"))
-    //         ).to.changeTokenBalances(mockERC20Token_18Decimals, [user1, auction], [payAmount.mul(-1), payAmount]);
+        it("Should bidToken successfully - 18 decimals token", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+            let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await expect(() =>
+                auction.connect(user1).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.1"))
+            ).to.changeTokenBalances(mockERC20Token_18Decimals, [user1, auction], [payAmount.mul(-1), payAmount]);
 
-    //         payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
-    //         await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
+            payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
 
-    //         payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
-    //         await expect(() =>
-    //             auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"))
-    //         ).to.changeTokenBalances(mockERC20Token_18Decimals, [user3, auction], [payAmount.mul(-1), payAmount]);
+            payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await expect(() =>
+                auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"))
+            ).to.changeTokenBalances(mockERC20Token_18Decimals, [user3, auction], [payAmount.mul(-1), payAmount]);
 
-    //         expect(await auction.totalBids()).to.equal(3);
-    //     });
+            expect(await auction.totalBids()).to.equal(3);
+        });
 
-    //     it("Should bidToken successfully - 24 decimals token", async () => {
-    //         await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
-    //         let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
-    //         await expect(() =>
-    //             auction.connect(user1).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1"))
-    //         ).to.changeTokenBalances(mockERC20Token_24Decimals, [user1, auction], [payAmount.mul(-1), payAmount]);
+        it("Should bidToken successfully - 24 decimals token", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+            let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await expect(() =>
+                auction.connect(user1).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1"))
+            ).to.changeTokenBalances(mockERC20Token_24Decimals, [user1, auction], [payAmount.mul(-1), payAmount]);
 
-    //         payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
-    //         await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
+            payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
 
-    //         payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
-    //         await expect(() =>
-    //             auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"))
-    //         ).to.changeTokenBalances(mockERC20Token_18Decimals, [user3, auction], [payAmount.mul(-1), payAmount]);
+            payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await expect(() =>
+                auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"))
+            ).to.changeTokenBalances(mockERC20Token_18Decimals, [user3, auction], [payAmount.mul(-1), payAmount]);
 
-    //         payAmount = getUsdToken(parseEther("0.1331"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
-    //         await expect(() =>
-    //             auction.connect(user4).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1331"))
-    //         ).to.changeTokenBalances(mockERC20Token_24Decimals, [user4, auction], [payAmount.mul(-1), payAmount]);
+            payAmount = getUsdToken(parseEther("0.1331"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await expect(() =>
+                auction.connect(user4).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1331"))
+            ).to.changeTokenBalances(mockERC20Token_24Decimals, [user4, auction], [payAmount.mul(-1), payAmount]);
 
-    //         expect(await auction.totalBids()).to.equal(4);
-    //     });
-    // });
+            expect(await auction.totalBids()).to.equal(4);
+        });
+    });
 
     describe("acceptBid - - initialList: true - withPhysical: true", () => {
         let timestamp: number;
@@ -728,9 +759,720 @@ describe("Auction", () => {
         });
     });
 
-    describe("acceptBid - - initialList: true - withPhysical: true", () => {
-        
-    })
+    describe("acceptBid - initialList: true - withPhysical: false", () => {
+        let timestamp: number;
+        let bidItem;
+        let sellpriceToken: BigNumber;
+        let charityAmount: BigNumber;
+        let creatorAmount: BigNumber;
+        let web3reAmount: BigNumber;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+            let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await auction.connect(user1).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1"));
+
+            payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
+        });
+
+        it("Should acceptBid successfully - native token", async () => {
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(2);
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithoutPhysical(
+                bidItem.bidPriceToken
+            );
+            await expect(() => auction.acceptBid(1)).to.changeEtherBalances(
+                [auction, charity, creator, web3re],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1)]
+            );
+        });
+
+        it("Should acceptBid successfully - 18 decimals token", async () => {
+            let payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(3);
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithoutPhysical(
+                bidItem.bidPriceToken
+            );
+            await expect(() => auction.acceptBid(1)).to.changeTokenBalances(
+                mockERC20Token_18Decimals,
+                [auction, charity, creator, web3re],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1)]
+            );
+        });
+
+        it("Should acceptBid successfully - 24 decimals token", async () => {
+            let payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"));
+
+            payAmount = getUsdToken(parseEther("0.1331"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await auction.connect(user4).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1331"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(4);
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithoutPhysical(
+                bidItem.bidPriceToken
+            );
+            await expect(() => auction.acceptBid(1)).to.changeTokenBalances(
+                mockERC20Token_24Decimals,
+                [auction, charity, creator, web3re],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1)]
+            );
+        });
+    });
+
+    describe("acceptBid - reAuction token - isCustodianWallet: true", () => {
+        let timestamp: number;
+        let payAmount: BigNumber;
+        let bidItem;
+        let sellpriceToken: BigNumber;
+        let charityAmount: BigNumber;
+        let creatorAmount: BigNumber;
+        let sellerAmount: BigNumber;
+        let web3reAmount: BigNumber;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+
+            await auction.connect(user1).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            await auction.acceptBid(1);
+
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction
+                .connect(user1)
+                .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                });
+
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
+        });
+
+        it("Should acceptBid successfully - native token", async () => {
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(2);
+            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionReAuctionCustodialWallet(bidItem.bidPriceToken, 5);
+            await expect(() => auction.acceptBid(1)).to.changeEtherBalances(
+                [auction, charity, creator, web3re, user1],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1), sellerAmount]
+            );
+        });
+
+        it("Should acceptBid successfully - 18 decimals token", async () => {
+            let payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(3);
+            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionReAuctionCustodialWallet(bidItem.bidPriceToken, 5);
+            await expect(() => auction.acceptBid(1)).to.changeTokenBalances(
+                mockERC20Token_18Decimals,
+                [auction, charity, creator, web3re, user1],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1), sellerAmount]
+            );
+        });
+
+        it("Should acceptBid successfully - 24 decimals token", async () => {
+            let payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"));
+
+            payAmount = getUsdToken(parseEther("0.1331"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await auction.connect(user4).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1331"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(4);
+            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionReAuctionCustodialWallet(bidItem.bidPriceToken, 5);
+            await expect(() => auction.acceptBid(1)).to.changeTokenBalances(
+                mockERC20Token_24Decimals,
+                [auction, charity, creator, web3re, user1],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1), sellerAmount]
+            );
+        });
+
+        it("Should acceptBid successfully - < 2 royaty", async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                1,
+                true,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 2);
+
+            await auction
+                .connect(user1)
+                .reAuctionToken(2, parseEther("0.1"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                });
+
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user2).bidToken(2, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(2);
+            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionReAuctionCustodialWallet(bidItem.bidPriceToken, 1);
+            await expect(() => auction.acceptBid(2)).to.changeEtherBalances(
+                [auction, charity, creator, web3re, user1],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1), sellerAmount]
+            );
+        });
+    });
+
+    describe("acceptBid - reAuction token - isCustodianWallet: false", () => {
+        let timestamp: number;
+        let payAmount: BigNumber;
+        let bidItem;
+        let sellpriceToken: BigNumber;
+        let charityAmount: BigNumber;
+        let creatorAmount: BigNumber;
+        let sellerAmount: BigNumber;
+        let web3reAmount: BigNumber;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                false,
+                5,
+                true,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+
+            await auction.connect(user1).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            await auction.acceptBid(1);
+
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction
+                .connect(user1)
+                .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                });
+
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
+        });
+
+        it("Should acceptBid successfully - native token", async () => {
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(2);
+            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionReAuctionNonCustodialWallet(bidItem.bidPriceToken, 5);
+            await expect(() => auction.acceptBid(1)).to.changeEtherBalances(
+                [auction, charity, creator, web3re, user1],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1), sellerAmount]
+            );
+        });
+
+        it("Should acceptBid successfully - 18 decimals token", async () => {
+            let payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(3);
+            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionReAuctionNonCustodialWallet(bidItem.bidPriceToken, 5);
+            await expect(() => auction.acceptBid(1)).to.changeTokenBalances(
+                mockERC20Token_18Decimals,
+                [auction, charity, creator, web3re, user1],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1), sellerAmount]
+            );
+        });
+
+        it("Should acceptBid successfully - 24 decimals token", async () => {
+            let payAmount = getUsdToken(parseEther("0.121"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.121"));
+
+            payAmount = getUsdToken(parseEther("0.1331"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await auction.connect(user4).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1331"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            bidItem = await auction.getBidById(4);
+            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
+                getCommissionReAuctionNonCustodialWallet(bidItem.bidPriceToken, 5);
+            await expect(() => auction.acceptBid(1)).to.changeTokenBalances(
+                mockERC20Token_24Decimals,
+                [auction, charity, creator, web3re, user1],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1), sellerAmount]
+            );
+        });
+    });
+
+    describe("cancelBid", () => {
+        let timestamp: number;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+            let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await auction.connect(user1).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1"));
+
+            payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
+        });
+
+        it("Should failed - Only bidder", async () => {
+            await expect(auction.cancelBid(1)).to.revertedWith("Only bidder");
+        });
+
+        it("Should failed - Not bidder", async () => {
+            await expect(auction.connect(user2).cancelBid(2)).to.revertedWith("Can not cancel highest bid");
+        });
+
+        it("Should cancelBid successfully", async () => {
+            let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await expect(() => auction.connect(user1).cancelBid(1)).to.changeTokenBalances(
+                mockERC20Token_24Decimals,
+                [auction, user1],
+                [payAmount.mul(-1), payAmount]
+            );
+
+            let bidItem = await auction.getBidById(1);
+            expect(bidItem.status).to.equal(1);
+        });
+
+        it("Should cancelBid successfully - after endtime", async () => {
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await expect(() => auction.connect(user1).cancelBid(1)).to.changeTokenBalances(
+                mockERC20Token_24Decimals,
+                [auction, user1],
+                [payAmount.mul(-1), payAmount]
+            );
+
+            let bidItem = await auction.getBidById(1);
+            expect(bidItem.status).to.equal(1);
+        });
+
+        it("Should cancelBid successfully - highest bid", async () => {
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
+            let payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await expect(() => auction.connect(user2).cancelBid(2)).to.changeEtherBalances(
+                [auction, user2],
+                [payAmount.mul(-1), payAmount]
+            );
+
+            let bidItem = await auction.getBidById(2);
+            expect(bidItem.status).to.equal(1);
+        });
+
+        it("Should failed - Bid closed", async () => {
+            await auction.connect(user1).cancelBid(1);
+            await expect(auction.connect(user1).cancelBid(1)).to.revertedWith("Bid closed");
+        });
+    });
+
+    describe("editBid", () => {
+        let timestamp: number;
+        let payAmount: BigNumber;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await auction.connect(user1).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1"));
+
+            payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.11"), { value: payAmount });
+        });
+
+        it("Should failed - Only bidder", async () => {
+            await expect(auction.editBid(2, parseEther("0.2"))).to.revertedWith("Only bidder");
+        });
+
+        it("Should failed - Not in auction time", async () => {
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+
+            await expect(auction.connect(user2).editBid(2, parseEther("0.2"))).to.revertedWith("Not in auction time");
+        });
+
+        it("Should failed - Bid canceled", async () => {
+            auction.connect(user1).cancelBid(1);
+            await expect(auction.connect(user1).editBid(1, parseEther("0.2"))).to.revertedWith("Bid canceled");
+        });
+
+        it("Should failed - Price less than min price", async () => {
+            await expect(auction.connect(user1).editBid(1, parseEther("0.1"))).to.revertedWith(
+                "Price less than min price"
+            );
+        });
+
+        it("Should failed - Payment token not supported", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await feeManager.removePaymentMethod(mockERC20Token_24Decimals.address);
+            await expect(auction.connect(user1).editBid(1, parseEther("0.2"))).to.revertedWith(
+                "Payment token not supported"
+            );
+        });
+
+        it("Should failed - mising asking price", async () => {
+            payAmount = getUsdToken(parseEther("0.01"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await expect(auction.connect(user2).editBid(2, parseEther("0.2"), { value: payAmount })).to.revertedWith(
+                "mising asking price"
+            );
+        });
+
+        it("Should successfully - missing price - native token", async () => {
+            payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            let refund = getUsdToken(parseEther("0.02"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await expect(() =>
+                auction.connect(user2).editBid(2, parseEther("0.2"), { value: payAmount })
+            ).to.changeEtherBalances(
+                [auction, user2],
+                [payAmount.sub(refund).add(2), payAmount.sub(refund).add(2).mul(-1)]
+            );
+            let priceToken = getUsdToken(parseEther("0.2"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+
+            let bidItem = await auction.getBidById(2);
+            expect(bidItem.bidPriceUSD).to.equal(parseEther("0.2"));
+            expect(bidItem.bidPriceWithFeeToken).to.equal(priceToken);
+            let auctionItem = await auction.getLastestAuctionToken(1);
+            expect(auctionItem.highestBidId).to.equal(2);
+        });
+
+        it("Should successfully - missing price - ERC20 token", async () => {
+            payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            await expect(() => auction.connect(user1).editBid(1, parseEther("0.2"))).to.changeTokenBalances(
+                mockERC20Token_24Decimals,
+                [auction, user1],
+                [payAmount, payAmount.mul(-1)]
+            );
+        });
+
+        it("Should successfully - exceed price - native token", async () => {
+            const AggregatorV3Test: AggregatorV3Test__factory = await ethers.getContractFactory("AggregatorV3Test");
+            let lowAggregatorV3Test = await AggregatorV3Test.deploy(TOKEN_PRICE_LOW, PRICE_FEED_DECIMALS_8);
+
+            await feeManager.changeAggregatorAddress(ADDRESS_ZERO, lowAggregatorV3Test.address);
+            let oldPayAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            payAmount = getUsdToken(parseEther("0.2"), TOKEN_PRICE_LOW, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            let refund = oldPayAmount.sub(payAmount);
+            await expect(() => auction.connect(user2).editBid(2, parseEther("0.2"))).to.changeEtherBalances(
+                [auction, user2],
+                [refund.mul(-1), refund]
+            );
+        });
+
+        it("Should successfully - exceed price - ERC20 token", async () => {
+            const AggregatorV3Test: AggregatorV3Test__factory = await ethers.getContractFactory("AggregatorV3Test");
+            let lowAggregatorV3Test = await AggregatorV3Test.deploy(TOKEN_PRICE_LOW, PRICE_FEED_DECIMALS_8);
+
+            await feeManager.changeAggregatorAddress(mockERC20Token_24Decimals.address, lowAggregatorV3Test.address);
+            let oldPayAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            payAmount = getUsdToken(parseEther("0.2"), TOKEN_PRICE_LOW, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            let refund = oldPayAmount.sub(payAmount);
+            await expect(() => auction.connect(user1).editBid(1, parseEther("0.2"))).to.changeTokenBalances(
+                mockERC20Token_24Decimals,
+                [auction, user1],
+                [refund.mul(-1), refund]
+            );
+        });
+
+        it("Accept bid after edit", async () => {
+            await auction.connect(user1).editBid(1, parseEther("0.2"));
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            let bidItem = await auction.getBidById(1);
+            let sellpriceToken: BigNumber;
+            let charityAmount: BigNumber;
+            let creatorAmount: BigNumber;
+            let web3reAmount: BigNumber;
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithoutPhysical(
+                bidItem.bidPriceToken
+            );
+            await expect(() => auction.acceptBid(1)).to.changeTokenBalances(
+                mockERC20Token_24Decimals,
+                [auction, charity, creator, web3re],
+                [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1)]
+            );
+        });
+    });
+
+    describe("cancelAuction", () => {
+        let timestamp: number;
+        let payAmount: BigNumber;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+        });
+
+        it("Should failed - Auction started", async () => {
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
+            await auction
+                .connect(user1)
+                .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                });
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+
+            await expect(auction.connect(user1).cancelAuction(1)).to.revertedWith("Auction started");
+        });
+
+        it("Should failed - Only item owner and not initialList", async () => {
+            await expect(auction.cancelAuction(1)).to.revertedWith("Only item owner and not initialList");
+
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
+            await auction
+                .connect(user1)
+                .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                });
+
+            await expect(auction.cancelAuction(1)).to.revertedWith("Only item owner and not initialList");
+        });
+
+        it("Should failed - Auction canceled", async () => {
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
+
+            await expect(auction.cancelAuction(1)).to.revertedWith("Auction canceled");
+        });
+
+        it("Should cancel auction successfully", async () => {
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
+            await auction
+                .connect(user1)
+                .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                });
+
+            await auction.connect(user1).cancelAuction(1);
+            let auctionItem = await auction.getLastestAuctionToken(1);
+            expect(auctionItem.sold).to.be.true;
+        });
+
+        it("Should cancel auction successfully - external minted token", async () => {
+            await nft.setAdministratorStatus(minter.address, true);
+            await nft.connect(minter).mint(user1.address, "");
+            await auction
+                .connect(user1)
+                .createExternalMintedItem(
+                    2,
+                    creator.address,
+                    true,
+                    5,
+                    parseEther("0.1"),
+                    parseEther("0.001"),
+                    timestamp + 1000,
+                    timestamp + 86400,
+                    { value: listingPriceSecondary }
+                );
+            await auction.connect(user1).cancelAuction(2);
+            let auctionItem = await auction.getLastestAuctionToken(2);
+            expect(auctionItem.sold).to.be.true;
+        });
+    });
+
+    describe("reclaimAuction", () => {
+        let timestamp: number;
+        let payAmount: BigNumber;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+        });
+
+        it("Should failed - Only auction owner", async () => {
+            await ethers.provider.send("evm_increaseTime", [96400]);
+            ethers.provider.send("evm_mine", []);
+
+            await expect(auction.connect(user1).reclaimAuction(1)).to.revertedWith("Only auction owner");
+        });
+
+        it("Should failed - Auction not end", async () => {
+            await expect(auction.connect(owner).reclaimAuction(1)).to.revertedWith("Auction not end");
+        });
+
+        it("Should failed - Auction already bidden", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await auction.connect(user1).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.121"));
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            await expect(auction.connect(owner).reclaimAuction(1)).to.revertedWith("Auction already bidden");
+        });
+
+        it("Should failed - Auction canceled", async () => {
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
+
+            await expect(auction.reclaimAuction(1)).to.revertedWith("Auction canceled");
+        });
+
+        it("Should successfully", async () => {
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+
+            await auction.reclaimAuction(1);
+            let auctionItem = await auction.getLastestAuctionToken(1);
+            expect(auctionItem.sold).to.be.true;
+        });
+
+        it("Should reclaim auction successfully - reAuction", async () => {
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
+            await auction
+                .connect(user1)
+                .reAuctionToken(1, parseEther("0.1"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                });
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+
+            await auction.connect(user1).reclaimAuction(1);
+            let auctionItem = await auction.getLastestAuctionToken(1);
+            expect(auctionItem.sold).to.be.true;
+        });
+
+        it("Should reclaim auction successfully - external minted token", async () => {
+            await nft.setAdministratorStatus(minter.address, true);
+            await nft.connect(minter).mint(user1.address, "");
+            await auction
+                .connect(user1)
+                .createExternalMintedItem(
+                    2,
+                    creator.address,
+                    true,
+                    5,
+                    parseEther("0.1"),
+                    parseEther("0.001"),
+                    timestamp + 1000,
+                    timestamp + 86400,
+                    { value: listingPriceSecondary }
+                );
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            await auction.connect(user1).reclaimAuction(2);
+            let auctionItem = await auction.getLastestAuctionToken(2);
+            expect(auctionItem.sold).to.be.true;
+        });
+    });
 });
 const getTokenPrice = (tokenPrice: number, priceDecimals: number, tokenDecimals: number): BigNumber => {
     let maticPriceBig = BigNumber.from(tokenPrice);
@@ -776,97 +1518,49 @@ const getUsdOrgToken = (
 };
 
 const getCommissionFirstTimeWithPhysical = (
-    sellPriceUSD: BigNumber,
-    reservePriceUSD: BigNumber
+    bidPriceToken: BigNumber,
+    reservePriceToken: BigNumber
 ): [BigNumber, BigNumber, BigNumber, BigNumber] => {
-    let sellpriceToken = sellPriceUSD.mul(102).div(100);
-    let charityAmount = sellPriceUSD.sub(reservePriceUSD).mul(80).div(100).add(reservePriceUSD.mul(20).div(100));
-    let creatorAmount = reservePriceUSD.mul(65).div(100);
-    let web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount);
-    return [sellpriceToken, charityAmount, creatorAmount, web3reAmount];
+    let sellpriceTokenWithFee = bidPriceToken.mul(102).div(100);
+    let charityAmount = bidPriceToken.sub(reservePriceToken).mul(80).div(100).add(reservePriceToken.mul(20).div(100));
+    let creatorAmount = reservePriceToken.mul(65).div(100);
+    let web3reAmount = sellpriceTokenWithFee.sub(charityAmount).sub(creatorAmount);
+    return [sellpriceTokenWithFee, charityAmount, creatorAmount, web3reAmount];
 };
 
 const getCommissionFirstTimeWithoutPhysical = (
-    marketItemSellPriceUSD: BigNumber,
-    tokenPrice: number,
-    priceDecimals: number,
-    tokenDecimals: number
+    bidPriceToken: BigNumber
 ): [BigNumber, BigNumber, BigNumber, BigNumber] => {
-    let sellpriceToken = getUsdToken(marketItemSellPriceUSD, tokenPrice, priceDecimals, tokenDecimals);
-    let charityAmount = getUsdOrgToken(
-        marketItemSellPriceUSD.mul(10).div(100),
-        tokenPrice,
-        priceDecimals,
-        tokenDecimals
-    );
-    let creatorAmount = getUsdOrgToken(
-        marketItemSellPriceUSD.mul(85).div(100),
-        tokenPrice,
-        priceDecimals,
-        tokenDecimals
-    );
-    let web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount);
-    return [sellpriceToken, charityAmount, creatorAmount, web3reAmount];
+    let sellpriceTokenWithFee = bidPriceToken.mul(102).div(100);
+    let charityAmount = bidPriceToken.mul(10).div(100);
+    let creatorAmount = bidPriceToken.mul(85).div(100);
+    let web3reAmount = sellpriceTokenWithFee.sub(charityAmount).sub(creatorAmount);
+    return [sellpriceTokenWithFee, charityAmount, creatorAmount, web3reAmount];
 };
 
-const getCommissionResellCustodialWallet = (
-    marketItemSellPriceUSD: BigNumber,
-    royaltyPercent: number,
-    tokenPrice: number,
-    priceDecimals: number,
-    tokenDecimals: number
+const getCommissionReAuctionCustodialWallet = (
+    bidPriceToken: BigNumber,
+    royaltyPercent: number
 ): [BigNumber, BigNumber, BigNumber, BigNumber, BigNumber] => {
-    let sellpriceToken = getUsdToken(marketItemSellPriceUSD, tokenPrice, priceDecimals, tokenDecimals);
+    let sellpriceTokenWithFee = bidPriceToken.mul(102).div(100);
     let creatorAmount = BigNumber.from(0);
     if (royaltyPercent > 2) {
-        creatorAmount = getUsdOrgToken(
-            marketItemSellPriceUSD.mul(2).div(100),
-            tokenPrice,
-            priceDecimals,
-            tokenDecimals
-        );
+        creatorAmount = bidPriceToken.mul(2).div(100);
     }
-    let charityAmount = getUsdOrgToken(
-        marketItemSellPriceUSD.mul(10).div(100),
-        tokenPrice,
-        priceDecimals,
-        tokenDecimals
-    );
-    let sellerAmount = getUsdOrgToken(
-        marketItemSellPriceUSD.mul(80).div(100),
-        tokenPrice,
-        priceDecimals,
-        tokenDecimals
-    );
-    let web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount).sub(sellerAmount);
-    return [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount];
+    let charityAmount = bidPriceToken.mul(10).div(100);
+    let sellerAmount = bidPriceToken.mul(80).div(100);
+    let web3reAmount = sellpriceTokenWithFee.sub(charityAmount).sub(creatorAmount).sub(sellerAmount);
+    return [sellpriceTokenWithFee, creatorAmount, charityAmount, sellerAmount, web3reAmount];
 };
 
-const getCommissionResellNonCustodialWallet = (
-    marketItemSellPriceUSD: BigNumber,
-    tokenPrice: number,
-    priceDecimals: number,
-    tokenDecimals: number
+const getCommissionReAuctionNonCustodialWallet = (
+    bidPriceToken: BigNumber,
+    royaltyPercent: number
 ): [BigNumber, BigNumber, BigNumber, BigNumber, BigNumber] => {
-    let sellpriceToken = getUsdToken(marketItemSellPriceUSD, tokenPrice, priceDecimals, tokenDecimals);
-    let creatorAmount = getUsdOrgToken(
-        marketItemSellPriceUSD.mul(5).div(100),
-        tokenPrice,
-        priceDecimals,
-        tokenDecimals
-    );
-    let charityAmount = getUsdOrgToken(
-        marketItemSellPriceUSD.mul(10).div(100),
-        tokenPrice,
-        priceDecimals,
-        tokenDecimals
-    );
-    let sellerAmount = getUsdOrgToken(
-        marketItemSellPriceUSD.mul(80).div(100),
-        tokenPrice,
-        priceDecimals,
-        tokenDecimals
-    );
-    let web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount).sub(sellerAmount);
-    return [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount];
+    let sellpriceTokenWithFee = bidPriceToken.mul(102).div(100);
+    let creatorAmount = bidPriceToken.mul(royaltyPercent).div(100);
+    let charityAmount = bidPriceToken.mul(10).div(100);
+    let sellerAmount = bidPriceToken.mul(80).div(100);
+    let web3reAmount = sellpriceTokenWithFee.sub(charityAmount).sub(creatorAmount).sub(sellerAmount);
+    return [sellpriceTokenWithFee, creatorAmount, charityAmount, sellerAmount, web3reAmount];
 };

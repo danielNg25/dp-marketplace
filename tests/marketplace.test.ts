@@ -753,6 +753,7 @@ describe("Marketplace", () => {
             [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
                 getCommissionResellNonCustodialWallet(
                     marketItem.sellpriceUSD,
+                    5,
                     TOKEN_PRICE,
                     PRICE_FEED_DECIMALS_8,
                     TOKEN_DECIMALS_18
@@ -1051,7 +1052,9 @@ describe("Marketplace", () => {
                         value: listingPrice,
                     }
                 );
-            await expect(marketplace.connect(user2).withdrawFunds(owner.address, ADDRESS_ZERO)).to.revertedWith("Ownable: caller is not the owner");
+            await expect(marketplace.connect(user2).withdrawFunds(owner.address, ADDRESS_ZERO)).to.revertedWith(
+                "Ownable: caller is not the owner"
+            );
             await expect(() => marketplace.withdrawFunds(owner.address, ADDRESS_ZERO)).to.changeEtherBalances(
                 [marketplace, owner],
                 [listingPrice.mul(-1), listingPrice]
@@ -1188,13 +1191,14 @@ const getCommissionResellCustodialWallet = (
 
 const getCommissionResellNonCustodialWallet = (
     marketItemSellPriceUSD: BigNumber,
+    royaltyPercent: number,
     tokenPrice: number,
     priceDecimals: number,
     tokenDecimals: number
 ): [BigNumber, BigNumber, BigNumber, BigNumber, BigNumber] => {
     let sellpriceToken = getUsdToken(marketItemSellPriceUSD, tokenPrice, priceDecimals, tokenDecimals);
     let creatorAmount = getUsdOrgToken(
-        marketItemSellPriceUSD.mul(5).div(100),
+        marketItemSellPriceUSD.mul(royaltyPercent).div(100),
         tokenPrice,
         priceDecimals,
         tokenDecimals

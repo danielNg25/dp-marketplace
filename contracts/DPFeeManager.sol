@@ -53,6 +53,14 @@ contract DPFeeManager is Ownable, IDPFeeManager {
         aggregatorV3Address[_token] = address(0);
     }
 
+    function changeAggregatorAddress(
+        address _token,
+        address _aggregatorV3Address
+    ) external onlyOwner {
+        require(_paymentMethods.contains(_token), "Payment method not set");
+        aggregatorV3Address[_token] = _aggregatorV3Address;
+    }
+
     /* ========== VIEW FUNCTIONS ========== */
 
     function getFeeInformation(
