@@ -45,6 +45,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     struct AuctionItem {
         uint256 tokenId;
+        uint256 auctionId;
         address payable seller;
         address payable c_Wallet;
         bool isCustodianWallet;
@@ -63,6 +64,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     struct BidItem {
         uint256 tokenId;
+        uint256 bidId;
         address bidder;
         address paymentToken;
         uint256 bidPriceUSD;
@@ -90,7 +92,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     event AuctionItemCreated(
         uint256 indexed tokenId,
-        uint256 auctionId,
+        uint256 indexed auctionId,
         address seller,
         address c_Wallet,
         bool isCustodianWallet,
@@ -246,6 +248,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         tokenToAuctionId[params.tokenId] = auctionId;
 
         newAuction.tokenId = params.tokenId;
+        newAuction.auctionId = auctionId;
         newAuction.seller = payable(msg.sender);
         newAuction.c_Wallet = payable(params.c_Wallet);
         newAuction.isCustodianWallet = params.isCustodianWallet;
@@ -418,6 +421,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 bidId = totalBids;
         BidItem memory newBidItem = BidItem(
             tokenId,
+            bidId,
             msg.sender,
             paymentToken,
             priceUSD,
@@ -739,6 +743,10 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         address _to,
         uint256 tokenId
     ) external nonReentrant whenNotPaused {
+        require(
+            NFT.adminApproved(tokenId) == address(this),
+            "TokenId not approved by admin"
+        );
         if (_listedTokenIds.contains(tokenId)) {
             uint256 auctionId = tokenToAuctionId[tokenId];
             idToAuctionItem[auctionId].sold = true;

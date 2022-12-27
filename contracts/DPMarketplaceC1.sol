@@ -462,6 +462,10 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         address _to,
         uint256 tokenId
     ) external nonReentrant whenNotPaused {
+        require(
+            NFT.adminApproved(tokenId) == address(this),
+            "TokenId not approved by admin"
+        );
         if (_listedTokenIds.contains(tokenId)) {
             idToMarketItem[tokenId].sold = true;
             idToMarketItem[tokenId].initialList = false;

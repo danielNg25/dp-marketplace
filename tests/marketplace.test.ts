@@ -352,8 +352,13 @@ describe("Marketplace", () => {
 
             expect((await marketplace.getUsdTokenPrice(2, ADDRESS_ZERO))[1]).to.equal(sellpriceToken);
             await expect(() =>
-                marketplace.connect(user1).createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken })
-            ).to.changeEtherBalances([charity, creator, web3re], [charityAmount, creatorAmount, web3reAmount]);
+                marketplace
+                    .connect(user1)
+                    .createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken.add(parseEther("0.01")) })
+            ).to.changeEtherBalances(
+                [user1, charity, creator, web3re],
+                [sellpriceToken.mul(-1), charityAmount, creatorAmount, web3reAmount]
+            );
 
             marketItem = await marketplace.getMarketItem(2);
             expect(await nft.ownerOf(2)).to.equal(user1.address);
@@ -831,7 +836,7 @@ describe("Marketplace", () => {
             expect(marketItem.sold).to.be.true;
         });
         it("Should transfer internal minted NFT successfully - from user", async () => {
-            marketplace.connect(user1).createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken });
+            await marketplace.connect(user1).createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken });
 
             await marketplace.approveAddress(2);
             await marketplace.transferNFTTo(user1.address, user2.address, 2);
@@ -1058,6 +1063,20 @@ describe("Marketplace", () => {
             await expect(() => marketplace.withdrawFunds(owner.address, ADDRESS_ZERO)).to.changeEtherBalances(
                 [marketplace, owner],
                 [listingPrice.mul(-1), listingPrice]
+            );
+
+            await expect(marketplace.withdrawFunds(owner.address, mockERC20Token_18Decimals.address)).to.revertedWith(
+                "Nothing to withdraw"
+            );
+
+            await mockERC20Token_18Decimals.connect(user1).transfer(marketplace.address, parseEther("0.01"));
+
+            await expect(() =>
+                marketplace.withdrawFunds(owner.address, mockERC20Token_18Decimals.address)
+            ).to.changeTokenBalances(
+                mockERC20Token_18Decimals,
+                [marketplace, owner],
+                [parseEther("0.01").mul(-1), parseEther("0.01")]
             );
         });
     });

@@ -20,6 +20,7 @@ contract DPNFT is
     string private _baseUri;
 
     mapping(address => bool) public administrators;
+    mapping(uint256 => address) public adminApproved;
 
     constructor() ERC721("GoyaCoin", "GOYA") {}
 
@@ -40,6 +41,7 @@ contract DPNFT is
         uint256 tokenId
     ) internal override(ERC721, ERC721Enumerable) {
         super._beforeTokenTransfer(from, to, tokenId);
+        adminApproved[tokenId] = address(0);
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -75,6 +77,7 @@ contract DPNFT is
      * @param tokenId to be approved
      */
     function administratorApprove(uint256 tokenId) external onlyAdministrator {
+        adminApproved[tokenId] = _msgSender();
         _approve(_msgSender(), tokenId);
     }
 

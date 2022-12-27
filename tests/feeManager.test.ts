@@ -52,6 +52,13 @@ describe("FeeManager", () => {
         listingPriceSecondary = await feeManager.getListingPriceSecondary();
     });
 
+    describe("Deployment", () => {
+        it("Should deploy successfully", async () => {
+            expect(await feeManager.getCharityAddress()).to.equal(charity.address);
+            expect(await feeManager.getWeb3reAddress()).to.equal(web3re.address);
+        });
+    });
+
     describe("setPaymentMethod", () => {
         it("Should failed - Ownable: caller is not the owner", async () => {
             await expect(

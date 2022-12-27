@@ -254,7 +254,7 @@ describe("Auction", () => {
                 parseEther("0.0001"),
                 { value: listingPrice }
             );
-
+            await auction.approveAddress(1);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
         });
 
@@ -407,7 +407,7 @@ describe("Auction", () => {
                 parseEther("0.0001"),
                 { value: listingPrice }
             );
-
+            await auction.approveAddress(2);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 2);
 
             await expect(
@@ -555,7 +555,11 @@ describe("Auction", () => {
             await ethers.provider.send("evm_increaseTime", [1000]);
             ethers.provider.send("evm_mine", []);
             let payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
-            await auction.connect(user1).bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount });
+            await expect(() =>
+                auction
+                    .connect(user1)
+                    .bidToken(1, ADDRESS_ZERO, parseEther("0.1"), { value: payAmount.add(parseEther("0.01")) })
+            ).to.changeEtherBalances([user1, auction], [payAmount.mul(-1), payAmount]);
 
             let bidPriceToken = getUsdOrgToken(
                 parseEther("0.1"),
@@ -620,6 +624,24 @@ describe("Auction", () => {
             ).to.changeTokenBalances(mockERC20Token_18Decimals, [user3, auction], [payAmount.mul(-1), payAmount]);
 
             expect(await auction.totalBids()).to.equal(3);
+        });
+
+        it("Should successfully after update minPriceIncreasePercent", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+            await auction.connect(user1).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.1"));
+
+            await auction.setMinPriceIncreasePercent(10000);
+
+            await expect(
+                auction.connect(user2).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.11"))
+            ).to.revertedWith("Price less than min price");
+
+            let payAmount = getUsdToken(parseEther("0.3"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await expect(() =>
+                auction.connect(user3).bidToken(1, mockERC20Token_18Decimals.address, parseEther("0.3"))
+            ).to.changeTokenBalances(mockERC20Token_18Decimals, [user3, auction], [payAmount.mul(-1), payAmount]);
         });
 
         it("Should bidToken successfully - 24 decimals token", async () => {
@@ -717,6 +739,7 @@ describe("Auction", () => {
                 [auction, charity, creator, web3re],
                 [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1)]
             );
+            expect(await auction.getItemSold()).to.equal(1);
         });
 
         it("Should acceptBid successfully - 18 decimals token", async () => {
@@ -735,6 +758,7 @@ describe("Auction", () => {
                 [auction, charity, creator, web3re],
                 [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1)]
             );
+            expect(await auction.getItemSold()).to.equal(1);
         });
 
         it("Should acceptBid successfully - 24 decimals token", async () => {
@@ -756,6 +780,7 @@ describe("Auction", () => {
                 [auction, charity, creator, web3re],
                 [sellpriceToken.mul(-1).sub(1), charityAmount, creatorAmount, web3reAmount.add(1)]
             );
+            expect(await auction.getItemSold()).to.equal(1);
         });
     });
 
@@ -952,6 +977,7 @@ describe("Auction", () => {
                 parseEther("0.0001"),
                 { value: listingPrice }
             );
+            await auction.approveAddress(2);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 2);
 
             await auction
@@ -1134,6 +1160,7 @@ describe("Auction", () => {
         });
 
         it("Should cancelBid successfully - highest bid", async () => {
+            await auction.approveAddress(1);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
             let payAmount = getUsdToken(parseEther("0.11"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
             await expect(() => auction.connect(user2).cancelBid(2)).to.changeEtherBalances(
@@ -1313,6 +1340,7 @@ describe("Auction", () => {
         });
 
         it("Should failed - Auction started", async () => {
+            await auction.approveAddress(1);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
             await auction
                 .connect(user1)
@@ -1327,7 +1355,7 @@ describe("Auction", () => {
 
         it("Should failed - Only item owner and not initialList", async () => {
             await expect(auction.cancelAuction(1)).to.revertedWith("Only item owner and not initialList");
-
+            await auction.approveAddress(1);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
             await auction
                 .connect(user1)
@@ -1339,12 +1367,14 @@ describe("Auction", () => {
         });
 
         it("Should failed - Auction canceled", async () => {
+            await auction.approveAddress(1);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
 
             await expect(auction.cancelAuction(1)).to.revertedWith("Auction canceled");
         });
 
         it("Should cancel auction successfully", async () => {
+            await auction.approveAddress(1);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
             await auction
                 .connect(user1)
@@ -1420,6 +1450,7 @@ describe("Auction", () => {
         });
 
         it("Should failed - Auction canceled", async () => {
+            await auction.approveAddress(1);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
 
             await expect(auction.reclaimAuction(1)).to.revertedWith("Auction canceled");
@@ -1435,6 +1466,7 @@ describe("Auction", () => {
         });
 
         it("Should reclaim auction successfully - reAuction", async () => {
+            await auction.approveAddress(1);
             await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
             await auction
                 .connect(user1)
@@ -1471,6 +1503,248 @@ describe("Auction", () => {
             await auction.connect(user1).reclaimAuction(2);
             let auctionItem = await auction.getLastestAuctionToken(2);
             expect(auctionItem.sold).to.be.true;
+        });
+    });
+
+    describe("withdraw", async () => {
+        beforeEach(async () => {
+            let timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+        });
+
+        it("Should failed - Ownable: caller is not the owner", async () => {
+            await expect(auction.connect(user2).withdrawFunds(owner.address, ADDRESS_ZERO)).to.revertedWith(
+                "Ownable: caller is not the owner"
+            );
+        });
+
+        it("Should withdraw successfully - native token", async () => {
+            await expect(() => auction.withdrawFunds(owner.address, ADDRESS_ZERO)).to.changeEtherBalances(
+                [auction, owner],
+                [listingPrice.mul(-1), listingPrice]
+            );
+        });
+
+        it("Should failed - Nothing to withdraw - native token", async () => {
+            await auction.withdrawFunds(owner.address, ADDRESS_ZERO);
+            await expect(auction.withdrawFunds(owner.address, ADDRESS_ZERO)).to.revertedWith("Nothing to withdraw");
+        });
+
+        it("Should failed - Nothing to withdraw - ERC20", async () => {
+            await expect(auction.withdrawFunds(owner.address, mockERC20Token_18Decimals.address)).to.revertedWith(
+                "Nothing to withdraw"
+            );
+        });
+
+        it("Should withdraw successfully - ERC20", async () => {
+            await mockERC20Token_18Decimals.connect(user1).transfer(auction.address, parseEther("0.01"));
+
+            await expect(() =>
+                auction.withdrawFunds(owner.address, mockERC20Token_18Decimals.address)
+            ).to.changeTokenBalances(
+                mockERC20Token_18Decimals,
+                [auction, owner],
+                [parseEther("0.01").mul(-1), parseEther("0.01")]
+            );
+        });
+    });
+
+    describe("admin transfer", () => {
+        beforeEach(async () => {
+            await nft.setAdministratorStatus(minter.address, true);
+            await nft.connect(minter).mint(user1.address, "");
+            let timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+        });
+        it("approveAddress failed - Ownable: caller is not the owner", async () => {
+            await expect(auction.connect(user1).approveAddress(1)).to.revertedWith("Ownable: caller is not the owner");
+        });
+        it("Should transfer external minted NFT successfully", async () => {
+            await auction.approveAddress(1);
+            await auction.transferNFTTo(user1.address, user2.address, 1);
+            expect(await nft.ownerOf(1)).to.equal(user2.address);
+        });
+        it("Should transfer internal minted NFT successfully", async () => {
+            await auction.approveAddress(2);
+            await auction.transferNFTTo(auction.address, user2.address, 2);
+            expect(await nft.ownerOf(2)).to.equal(user2.address);
+            const auctionItem = await auction.getAuctionById(1);
+            expect(auctionItem.sold).to.be.true;
+        });
+        it("Should transfer internal minted NFT successfully - from user", async () => {
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+
+            await auction.connect(user1).bidToken(2, mockERC20Token_24Decimals.address, parseEther("0.1"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            await auction.acceptBid(2);
+
+            await auction.approveAddress(2);
+            await auction.transferNFTTo(user1.address, user2.address, 2);
+            expect(await nft.ownerOf(2)).to.equal(user2.address);
+            const auctionItem = await auction.getAuctionById(1);
+            expect(auctionItem.sold).to.be.true;
+        });
+    });
+
+    describe("getter functions", async () => {
+        let timestamp: number;
+        let payAmount: BigNumber;
+        beforeEach(async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+
+            await auction.connect(user1).bidToken(1, mockERC20Token_24Decimals.address, parseEther("0.1"));
+
+            await ethers.provider.send("evm_increaseTime", [86400]);
+            ethers.provider.send("evm_mine", []);
+            await auction.acceptBid(1);
+
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction
+                .connect(user1)
+                .reAuctionToken(1, parseEther("0.2"), parseEther("0.0001"), timestamp + 1000, timestamp + 86400, {
+                    value: listingPriceSecondary,
+                });
+
+            await ethers.provider.send("evm_increaseTime", [1000]);
+            ethers.provider.send("evm_mine", []);
+            payAmount = getUsdToken(parseEther("0.21"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            await auction.connect(user2).bidToken(1, ADDRESS_ZERO, parseEther("0.21"), { value: payAmount });
+        });
+
+        it("get highest bid", async () => {
+            let bidItem = await auction.getHighestBidOfAuction(1);
+            expect(bidItem.bidder).to.equal(user1.address);
+            expect(bidItem.bidPriceUSD).to.equal(parseEther("0.1"));
+            expect(bidItem.tokenId).to.equal(1);
+
+            bidItem = await auction.getHighestBidOfLastestAuctionToken(1);
+            expect(bidItem.bidder).to.equal(user2.address);
+            expect(bidItem.bidPriceUSD).to.equal(parseEther("0.21"));
+            expect(bidItem.tokenId).to.equal(1);
+        });
+
+        it("get price", async () => {
+            let startPriceOfAuction = await auction.getUsdTokenStartPriceOfAuction(1, ADDRESS_ZERO);
+            payAmount = getUsdToken(parseEther("0.1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            expect(startPriceOfAuction[0]).to.be.true;
+            expect(startPriceOfAuction[1]).to.equal(payAmount);
+
+            let startPriceOfToken = await auction.getUsdTokenStartPriceOfToken(1, ADDRESS_ZERO);
+            payAmount = getUsdToken(parseEther("0.2"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_18);
+            expect(startPriceOfToken[0]).to.be.true;
+            expect(startPriceOfToken[1]).to.equal(payAmount);
+
+            let tokenPrice = await auction.getUsdTokenPrice(parseEther("1"), mockERC20Token_24Decimals.address);
+            payAmount = getUsdToken(parseEther("1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_24);
+            expect(tokenPrice[0]).to.be.true;
+            expect(tokenPrice[1]).to.equal(payAmount);
+
+            await feeManager.removePaymentMethod(mockERC20Token_18Decimals.address);
+
+            let result = await auction.getUsdTokenPrice(parseEther("1"), mockERC20Token_18Decimals.address);
+            expect(result[0]).to.be.false;
+        });
+
+        it("fetchItem", async () => {
+            timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+            await auction.createToken(
+                "google.com",
+                creator.address,
+                true,
+                5,
+                false,
+                parseEther("0.1"),
+                parseEther("0.05"),
+                timestamp + 1000,
+                timestamp + 86400,
+                parseEther("0.0001"),
+                { value: listingPrice }
+            );
+
+            await auction
+                .connect(user1)
+                .createToken(
+                    "google.com",
+                    creator.address,
+                    true,
+                    5,
+                    false,
+                    parseEther("0.1"),
+                    parseEther("0.05"),
+                    timestamp + 1000,
+                    timestamp + 86400,
+                    parseEther("0.0001"),
+                    { value: listingPrice }
+                );
+
+            let items = await auction.fetchAuctionItems();
+            expect(items.length).to.equal(3);
+            expect(items[0].tokenId).to.equal(1);
+            expect(items[0].auctionId).to.equal(2);
+            expect(items[1].tokenId).to.equal(2);
+            expect(items[1].auctionId).to.equal(3);
+            expect(items[2].tokenId).to.equal(3);
+            expect(items[2].auctionId).to.equal(4);
+
+            items = await auction.connect(user1).fetchMyNFTs();
+            expect(items.length).to.equal(0);
+
+            await auction.approveAddress(1);
+            await auction.connect(owner).transferNFTTo(auction.address, user1.address, 1);
+            items = await auction.connect(user1).fetchMyNFTs();
+            expect(items.length).to.equal(1);
+            expect(items[0].tokenId).to.equal(1);
+            expect(items[0].auctionId).to.equal(2);
+
+            items = await auction.connect(user1).fetchItemsListed();
+            expect(items.length).to.equal(2);
+            expect(items[0].tokenId).to.equal(1);
+            expect(items[0].auctionId).to.equal(2);
+            expect(items[1].tokenId).to.equal(3);
+            expect(items[1].auctionId).to.equal(4);
         });
     });
 });
