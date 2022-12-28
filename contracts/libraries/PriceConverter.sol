@@ -40,18 +40,6 @@ library PriceConverter {
         return PriceData(roundId, returnAnswer, uint256(tokenDecimals));
     }
 
-    // 1000000000
-    function getConversionRate(
-        uint256 amount,
-        PriceData memory priceData
-    ) internal pure returns (uint256) {
-        amount = matchDecimals(amount, priceData.tokenDecimals);
-        uint256 tokenAmountInUsd = (priceData.price * amount) /
-            (10 ** priceData.tokenDecimals);
-        // the actual token/USD conversion rate, after adjusting the extra 0s.
-        return tokenAmountInUsd;
-    }
-
     function getOrgUsdToken(
         uint256 amount,
         PriceData memory priceData

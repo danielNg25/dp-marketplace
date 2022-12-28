@@ -26,6 +26,7 @@ describe("Auction", () => {
     const TOKEN_DECIMALS_24 = 24;
     const TOKEN_DECIMALS_18 = 18;
     const PRICE_FEED_DECIMALS_8 = 8;
+    const TOKEN_DECIMALS_4 = 4;
 
     let listingPrice: BigNumber;
     let listingPriceSecondary: BigNumber;
@@ -1686,6 +1687,15 @@ describe("Auction", () => {
 
             let result = await auction.getUsdTokenPrice(parseEther("1"), mockERC20Token_18Decimals.address);
             expect(result[0]).to.be.false;
+
+            const MockERC20Token: MockERC20Token__factory = await ethers.getContractFactory("MockERC20Token");
+            const mockERC20Token_4Decimals = await MockERC20Token.deploy(TOKEN_DECIMALS_4);
+            await feeManager.setPaymentMethod(mockERC20Token_4Decimals.address, aggregatorV3Test.address);
+
+            tokenPrice = await auction.getUsdTokenPrice(parseEther("1"), mockERC20Token_4Decimals.address);
+            payAmount = getUsdToken(parseEther("1"), TOKEN_PRICE, PRICE_FEED_DECIMALS_8, TOKEN_DECIMALS_4);
+            expect(tokenPrice[0]).to.be.true;
+            expect(tokenPrice[1]).to.equal(payAmount);
         });
 
         it("fetchItem", async () => {
@@ -1762,7 +1772,7 @@ const matchUsdWithTokenDecimals = (amount: BigNumber, decimals: number): BigNumb
     if (decimals > 18) {
         amount = amount.mul(BigNumber.from("10").pow(decimals - 18));
     } else if (decimals < 18) {
-        amount = amount.div(BigNumber.from("10").pow(decimals - 18));
+        amount = amount.div(BigNumber.from("10").pow(18 - decimals));
     }
     return amount;
 };
