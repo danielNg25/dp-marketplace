@@ -39,9 +39,9 @@ describe("DPNFT", () => {
 
     describe("setURIPrefic", () => {
         it("Should failed - Ownable: caller is not the owner", async () => {
-            await expect(nft.connect(user1).setURIPrefix("alo.com")).to.revertedWith(
-                "Ownable: caller is not the owner"
-            );
+            await expect(
+                nft.connect(user1).setURIPrefix("alo.com"),
+            ).to.revertedWith("Ownable: caller is not the owner");
         });
 
         it("Should set successfully", async () => {
@@ -52,7 +52,9 @@ describe("DPNFT", () => {
 
     describe("Mint", () => {
         it("Should failed - Not administrator", async () => {
-            await expect(nft.connect(user1).mint(user2.address, "123")).to.revertedWith("Not administrator");
+            await expect(
+                nft.connect(user1).mint(user2.address, "123"),
+            ).to.revertedWith("Not administrator");
         });
         it("Should mint successfully", async () => {
             await nft.connect(minter).mint(user2.address, "123");
@@ -61,20 +63,24 @@ describe("DPNFT", () => {
         });
 
         it("Should mint batch failed - Not administrator", async () => {
-            await expect(nft.mintBatch([user2.address, user1.address], ["123", "456"])).to.revertedWith(
-                "Not administrator"
-            );
+            await expect(
+                nft.mintBatch([user2.address, user1.address], ["123", "456"]),
+            ).to.revertedWith("Not administrator");
         });
 
         it("Should mint batch failed - Invalid input length", async () => {
-            await expect(nft.connect(minter).mintBatch([user2.address], ["123", "456"])).to.revertedWith(
-                "Invalid input length"
+            await expect(
+                nft.connect(minter).mintBatch([user2.address], ["123", "456"]),
+            ).to.revertedWith("Invalid input length");
+            await expect(nft.connect(minter).mintBatch([], [])).to.revertedWith(
+                "Invalid input length",
             );
-            await expect(nft.connect(minter).mintBatch([], [])).to.revertedWith("Invalid input length");
         });
 
         it("Should mint batch successfully", async () => {
-            await nft.connect(minter).mintBatch([user2.address, user1.address], ["123", "456"]);
+            await nft
+                .connect(minter)
+                .mintBatch([user2.address, user1.address], ["123", "456"]);
             const tokens = await nft.tokensOfOwner(user2.address);
             expect(await nft.totalSupply()).to.equal(2);
             expect(tokens.length).to.equal(1);
@@ -88,12 +94,16 @@ describe("DPNFT", () => {
         });
 
         it("Should failed- caller is not owner nor approved", async () => {
-            await expect(nft.connect(user1).burn(1)).to.revertedWith("ERC721: caller is not token owner nor approved");
+            await expect(nft.connect(user1).burn(1)).to.revertedWith(
+                "ERC721: caller is not token owner nor approved",
+            );
         });
 
         it("Should burn successfully", async () => {
             await nft.connect(user2).burn(1);
-            await expect(nft.ownerOf(1)).to.revertedWith("ERC721: invalid token ID");
+            await expect(nft.ownerOf(1)).to.revertedWith(
+                "ERC721: invalid token ID",
+            );
         });
     });
 

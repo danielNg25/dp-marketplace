@@ -54,36 +54,71 @@ describe("Marketplace", () => {
         minter = accounts[6];
 
         const DPNFT: DPNFT__factory = await ethers.getContractFactory("DPNFT");
-        const Marketplace: DPMarketplaceC1__factory = await ethers.getContractFactory("DPMarketplaceC1");
-        const AggregatorV3Test: AggregatorV3Test__factory = await ethers.getContractFactory("AggregatorV3Test");
-        const MockERC20Token: MockERC20Token__factory = await ethers.getContractFactory("MockERC20Token");
-        const FeeManager: DPFeeManager__factory = await ethers.getContractFactory("DPFeeManager");
+        const Marketplace: DPMarketplaceC1__factory =
+            await ethers.getContractFactory("DPMarketplaceC1");
+        const AggregatorV3Test: AggregatorV3Test__factory =
+            await ethers.getContractFactory("AggregatorV3Test");
+        const MockERC20Token: MockERC20Token__factory =
+            await ethers.getContractFactory("MockERC20Token");
+        const FeeManager: DPFeeManager__factory =
+            await ethers.getContractFactory("DPFeeManager");
 
         feeManager = await FeeManager.deploy(charity.address, web3re.address);
         nft = await DPNFT.deploy();
-        marketplace = await Marketplace.deploy(owner.address, nft.address, feeManager.address);
+        marketplace = await Marketplace.deploy(
+            owner.address,
+            nft.address,
+            feeManager.address,
+        );
 
-        aggregatorV3Test = await AggregatorV3Test.deploy(TOKEN_PRICE, PRICE_FEED_DECIMALS_8);
-        mockERC20Token_24Decimals = await MockERC20Token.deploy(TOKEN_DECIMALS_24);
-        mockERC20Token_18Decimals = await MockERC20Token.deploy(TOKEN_DECIMALS_18);
+        aggregatorV3Test = await AggregatorV3Test.deploy(
+            TOKEN_PRICE,
+            PRICE_FEED_DECIMALS_8,
+        );
+        mockERC20Token_24Decimals = await MockERC20Token.deploy(
+            TOKEN_DECIMALS_24,
+        );
+        mockERC20Token_18Decimals = await MockERC20Token.deploy(
+            TOKEN_DECIMALS_18,
+        );
 
         await nft.setAdministratorStatus(marketplace.address, true);
 
         listingPrice = await feeManager.getListingPrice();
         listingPriceSecondary = await feeManager.getListingPriceSecondary();
 
-        await feeManager.setPaymentMethod(ADDRESS_ZERO, aggregatorV3Test.address);
-        await feeManager.setPaymentMethod(mockERC20Token_24Decimals.address, aggregatorV3Test.address);
+        await feeManager.setPaymentMethod(
+            ADDRESS_ZERO,
+            aggregatorV3Test.address,
+        );
+        await feeManager.setPaymentMethod(
+            mockERC20Token_24Decimals.address,
+            aggregatorV3Test.address,
+        );
 
         await mockERC20Token_18Decimals.mint(user1.address, parseEther("10"));
         await mockERC20Token_18Decimals.mint(user2.address, parseEther("10"));
-        await mockERC20Token_24Decimals.mint(user1.address, parseEther("1000000000"));
-        await mockERC20Token_24Decimals.mint(user2.address, parseEther("1000000000"));
+        await mockERC20Token_24Decimals.mint(
+            user1.address,
+            parseEther("1000000000"),
+        );
+        await mockERC20Token_24Decimals.mint(
+            user2.address,
+            parseEther("1000000000"),
+        );
 
-        await mockERC20Token_18Decimals.connect(user1).approve(marketplace.address, parseEther("1000"));
-        await mockERC20Token_18Decimals.connect(user2).approve(marketplace.address, parseEther("1000"));
-        await mockERC20Token_24Decimals.connect(user1).approve(marketplace.address, parseEther("100000000000"));
-        await mockERC20Token_24Decimals.connect(user2).approve(marketplace.address, parseEther("100000000000"));
+        await mockERC20Token_18Decimals
+            .connect(user1)
+            .approve(marketplace.address, parseEther("1000"));
+        await mockERC20Token_18Decimals
+            .connect(user2)
+            .approve(marketplace.address, parseEther("1000"));
+        await mockERC20Token_24Decimals
+            .connect(user1)
+            .approve(marketplace.address, parseEther("100000000000"));
+        await mockERC20Token_24Decimals
+            .connect(user2)
+            .approve(marketplace.address, parseEther("100000000000"));
     });
 
     describe("createToken", () => {
@@ -100,8 +135,8 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
-                )
+                    },
+                ),
             ).to.revertedWith("Price must be >= reserve price");
         });
 
@@ -118,8 +153,8 @@ describe("Marketplace", () => {
                     parseEther("0"),
                     {
                         value: listingPrice,
-                    }
-                )
+                    },
+                ),
             ).to.revertedWith("Price must be at least 1 wei");
         });
 
@@ -136,8 +171,8 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice.add(1),
-                    }
-                )
+                    },
+                ),
             ).to.revertedWith("Price must be = listing price");
         });
 
@@ -151,10 +186,10 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
 
-            let marketItem = await marketplace.getMarketItem(1);
+            const marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.tokenId).to.equal(1);
             expect(marketItem.seller).to.equal(owner.address);
             expect(marketItem.c_Wallet).to.equal(creator.address);
@@ -182,7 +217,7 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
         });
 
@@ -190,9 +225,17 @@ describe("Marketplace", () => {
             await expect(
                 marketplace
                     .connect(user2)
-                    .createExternalMintedItem(1, creator.address, true, 5, 1000, parseEther("0.0001"), {
-                        value: listingPriceSecondary,
-                    })
+                    .createExternalMintedItem(
+                        1,
+                        creator.address,
+                        true,
+                        5,
+                        1000,
+                        parseEther("0.0001"),
+                        {
+                            value: listingPriceSecondary,
+                        },
+                    ),
             ).to.revertedWith("Only item o");
         });
 
@@ -200,20 +243,36 @@ describe("Marketplace", () => {
             await expect(
                 marketplace
                     .connect(user1)
-                    .createExternalMintedItem(1, creator.address, true, 5, 1000, parseEther("0.0001"), {
-                        value: listingPriceSecondary.sub(1),
-                    })
+                    .createExternalMintedItem(
+                        1,
+                        creator.address,
+                        true,
+                        5,
+                        1000,
+                        parseEther("0.0001"),
+                        {
+                            value: listingPriceSecondary.sub(1),
+                        },
+                    ),
             ).to.revertedWith("Price must be = Sec list price");
         });
 
         it("Should create successfully", async () => {
             await marketplace
                 .connect(user1)
-                .createExternalMintedItem(1, creator.address, true, 5, parseEther("0.1"), parseEther("0.0001"), {
-                    value: listingPriceSecondary,
-                });
+                .createExternalMintedItem(
+                    1,
+                    creator.address,
+                    true,
+                    5,
+                    parseEther("0.1"),
+                    parseEther("0.0001"),
+                    {
+                        value: listingPriceSecondary,
+                    },
+                );
 
-            let marketItem = await marketplace.getMarketItem(1);
+            const marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.tokenId).to.equal(1);
             expect(marketItem.seller).to.equal(user1.address);
             expect(marketItem.c_Wallet).to.equal(creator.address);
@@ -244,21 +303,26 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
             marketItem = await marketplace.getMarketItem(1);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
-                marketItem.sellpriceUSD,
-                marketItem.reservePriceUSD,
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
-            );
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
+                getCommissionFirstTimeWithPhysical(
+                    marketItem.sellpriceUSD,
+                    marketItem.reservePriceUSD,
+                    TOKEN_PRICE,
+                    PRICE_FEED_DECIMALS_8,
+                    TOKEN_DECIMALS_18,
+                );
         });
 
         it("Should failed - missing asking price", async () => {
             await expect(
-                marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken.sub(1) })
+                marketplace
+                    .connect(user1)
+                    .createMarketSale(1, ADDRESS_ZERO, {
+                        value: sellpriceToken.sub(1),
+                    }),
             ).to.revertedWith("missing asking price");
         });
 
@@ -266,15 +330,26 @@ describe("Marketplace", () => {
             await expect(
                 marketplace
                     .connect(user1)
-                    .createMarketSale(1, mockERC20Token_18Decimals.address, { value: sellpriceToken.sub(1) })
+                    .createMarketSale(1, mockERC20Token_18Decimals.address, {
+                        value: sellpriceToken.sub(1),
+                    }),
             ).to.revertedWith("Payment token not supported");
         });
 
         it("Should createMarketSale successfully", async () => {
-            expect((await marketplace.getUsdTokenPrice(1, ADDRESS_ZERO))[1]).to.equal(sellpriceToken);
+            expect(
+                (await marketplace.getUsdTokenPrice(1, ADDRESS_ZERO))[1],
+            ).to.equal(sellpriceToken);
             await expect(() =>
-                marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken })
-            ).to.changeEtherBalances([charity, creator, web3re], [charityAmount, creatorAmount, web3reAmount]);
+                marketplace
+                    .connect(user1)
+                    .createMarketSale(1, ADDRESS_ZERO, {
+                        value: sellpriceToken,
+                    }),
+            ).to.changeEtherBalances(
+                [charity, creator, web3re],
+                [charityAmount, creatorAmount, web3reAmount],
+            );
 
             marketItem = await marketplace.getMarketItem(1);
             expect(await nft.ownerOf(1)).to.equal(user1.address);
@@ -286,13 +361,23 @@ describe("Marketplace", () => {
         });
 
         it("Should createMarketSale successfully - paymentMethod: ERC20Token - decimals 18", async () => {
-            await feeManager.setPaymentMethod(mockERC20Token_18Decimals.address, aggregatorV3Test.address);
+            await feeManager.setPaymentMethod(
+                mockERC20Token_18Decimals.address,
+                aggregatorV3Test.address,
+            );
             await expect(() =>
-                marketplace.connect(user1).createMarketSale(1, mockERC20Token_18Decimals.address)
+                marketplace
+                    .connect(user1)
+                    .createMarketSale(1, mockERC20Token_18Decimals.address),
             ).to.changeTokenBalances(
                 mockERC20Token_18Decimals,
                 [user1, charity, creator, web3re],
-                [sellpriceToken.mul(-1), charityAmount, creatorAmount, web3reAmount]
+                [
+                    sellpriceToken.mul(-1),
+                    charityAmount,
+                    creatorAmount,
+                    web3reAmount,
+                ],
             );
 
             marketItem = await marketplace.getMarketItem(1);
@@ -305,19 +390,27 @@ describe("Marketplace", () => {
         });
 
         it("Should createMarketSale successfully - paymentMethod: ERC20Token - decimals 24", async () => {
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
-                marketItem.sellpriceUSD,
-                marketItem.reservePriceUSD,
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_24
-            );
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
+                getCommissionFirstTimeWithPhysical(
+                    marketItem.sellpriceUSD,
+                    marketItem.reservePriceUSD,
+                    TOKEN_PRICE,
+                    PRICE_FEED_DECIMALS_8,
+                    TOKEN_DECIMALS_24,
+                );
             await expect(() =>
-                marketplace.connect(user1).createMarketSale(1, mockERC20Token_24Decimals.address)
+                marketplace
+                    .connect(user1)
+                    .createMarketSale(1, mockERC20Token_24Decimals.address),
             ).to.changeTokenBalances(
                 mockERC20Token_24Decimals,
                 [user1, charity, creator, web3re],
-                [sellpriceToken.mul(-1), charityAmount, creatorAmount, web3reAmount]
+                [
+                    sellpriceToken.mul(-1),
+                    charityAmount,
+                    creatorAmount,
+                    web3reAmount,
+                ],
             );
 
             marketItem = await marketplace.getMarketItem(1);
@@ -339,25 +432,35 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.1"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
             marketItem = await marketplace.getMarketItem(2);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
-                marketItem.sellpriceUSD,
-                marketItem.reservePriceUSD,
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
-            );
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
+                getCommissionFirstTimeWithPhysical(
+                    marketItem.sellpriceUSD,
+                    marketItem.reservePriceUSD,
+                    TOKEN_PRICE,
+                    PRICE_FEED_DECIMALS_8,
+                    TOKEN_DECIMALS_18,
+                );
 
-            expect((await marketplace.getUsdTokenPrice(2, ADDRESS_ZERO))[1]).to.equal(sellpriceToken);
+            expect(
+                (await marketplace.getUsdTokenPrice(2, ADDRESS_ZERO))[1],
+            ).to.equal(sellpriceToken);
             await expect(() =>
                 marketplace
                     .connect(user1)
-                    .createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken.add(parseEther("0.01")) })
+                    .createMarketSale(2, ADDRESS_ZERO, {
+                        value: sellpriceToken.add(parseEther("0.01")),
+                    }),
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
-                [sellpriceToken.mul(-1), charityAmount, creatorAmount, web3reAmount]
+                [
+                    sellpriceToken.mul(-1),
+                    charityAmount,
+                    creatorAmount,
+                    web3reAmount,
+                ],
             );
 
             marketItem = await marketplace.getMarketItem(2);
@@ -386,35 +489,48 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
             marketItem = await marketplace.getMarketItem(1);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
-                marketItem.sellpriceUSD,
-                marketItem.reservePriceUSD,
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
-            );
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
+                getCommissionFirstTimeWithPhysical(
+                    marketItem.sellpriceUSD,
+                    marketItem.reservePriceUSD,
+                    TOKEN_PRICE,
+                    PRICE_FEED_DECIMALS_8,
+                    TOKEN_DECIMALS_18,
+                );
         });
 
         it("Should failed - missing asking price", async () => {
             await expect(
-                marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken.sub(1) })
+                marketplace
+                    .connect(user1)
+                    .createMarketSale(1, ADDRESS_ZERO, {
+                        value: sellpriceToken.sub(1),
+                    }),
             ).to.revertedWith("missing asking price");
         });
 
         it("Should createMarketSale successfully", async () => {
             marketItem = await marketplace.getMarketItem(1);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithoutPhysical(
-                marketItem.sellpriceUSD,
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
-            );
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
+                getCommissionFirstTimeWithoutPhysical(
+                    marketItem.sellpriceUSD,
+                    TOKEN_PRICE,
+                    PRICE_FEED_DECIMALS_8,
+                    TOKEN_DECIMALS_18,
+                );
             await expect(() =>
-                marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken })
-            ).to.changeEtherBalances([charity, creator, web3re], [charityAmount, creatorAmount, web3reAmount]);
+                marketplace
+                    .connect(user1)
+                    .createMarketSale(1, ADDRESS_ZERO, {
+                        value: sellpriceToken,
+                    }),
+            ).to.changeEtherBalances(
+                [charity, creator, web3re],
+                [charityAmount, creatorAmount, web3reAmount],
+            );
             expect(await nft.ownerOf(1)).to.equal(user1.address);
 
             marketItem = await marketplace.getMarketItem(1);
@@ -428,20 +544,31 @@ describe("Marketplace", () => {
 
         it("Should failed createExternalMintedItem - Item already listed", async () => {
             marketItem = await marketplace.getMarketItem(1);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithoutPhysical(
-                marketItem.sellpriceUSD,
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
-            );
-            await marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
+                getCommissionFirstTimeWithoutPhysical(
+                    marketItem.sellpriceUSD,
+                    TOKEN_PRICE,
+                    PRICE_FEED_DECIMALS_8,
+                    TOKEN_DECIMALS_18,
+                );
+            await marketplace
+                .connect(user1)
+                .createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
 
             await expect(
                 marketplace
                     .connect(user1)
-                    .createExternalMintedItem(1, creator.address, true, 5, 1000, parseEther("0.0001"), {
-                        value: listingPriceSecondary,
-                    })
+                    .createExternalMintedItem(
+                        1,
+                        creator.address,
+                        true,
+                        5,
+                        1000,
+                        parseEther("0.0001"),
+                        {
+                            value: listingPriceSecondary,
+                        },
+                    ),
             ).to.revertedWith("Item already listed");
         });
     });
@@ -457,16 +584,18 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
-            let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceToken = getUsdToken(
+            const marketItem = await marketplace.getMarketItem(1);
+            const sellpriceToken = getUsdToken(
                 marketItem.sellpriceUSD,
                 TOKEN_PRICE,
                 PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
+                TOKEN_DECIMALS_18,
             );
-            await marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
+            await marketplace
+                .connect(user1)
+                .createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
         });
 
         it("Should failed - Can not resell unsold item", async () => {
@@ -475,7 +604,13 @@ describe("Marketplace", () => {
             await expect(
                 marketplace
                     .connect(user2)
-                    .resellToken(2, parseEther("0.2"), parseEther("0.0011"), false, { value: listingPriceSecondary })
+                    .resellToken(
+                        2,
+                        parseEther("0.2"),
+                        parseEther("0.0011"),
+                        false,
+                        { value: listingPriceSecondary },
+                    ),
             ).to.revertedWith("Can not resell unsold item");
         });
 
@@ -483,24 +618,44 @@ describe("Marketplace", () => {
             await expect(
                 marketplace
                     .connect(user2)
-                    .resellToken(1, parseEther("0.2"), parseEther("0.0011"), false, { value: listingPriceSecondary })
+                    .resellToken(
+                        1,
+                        parseEther("0.2"),
+                        parseEther("0.0011"),
+                        false,
+                        { value: listingPriceSecondary },
+                    ),
             ).to.revertedWith("Only item o");
         });
 
         it("Should failed - Price must be = Sec list price", async () => {
             await expect(
-                marketplace.connect(user1).resellToken(1, parseEther("0.2"), parseEther("0.0011"), false, {
-                    value: listingPriceSecondary.sub(1),
-                })
+                marketplace
+                    .connect(user1)
+                    .resellToken(
+                        1,
+                        parseEther("0.2"),
+                        parseEther("0.0011"),
+                        false,
+                        {
+                            value: listingPriceSecondary.sub(1),
+                        },
+                    ),
             ).to.revertedWith("Price must be = Sec list price");
         });
 
         it("Should resellToken successfully", async () => {
             await marketplace
                 .connect(user1)
-                .resellToken(1, parseEther("0.2"), parseEther("0.0011"), false, { value: listingPriceSecondary });
+                .resellToken(
+                    1,
+                    parseEther("0.2"),
+                    parseEther("0.0011"),
+                    false,
+                    { value: listingPriceSecondary },
+                );
 
-            let marketItem = await marketplace.getMarketItem(1);
+            const marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.seller).to.equal(user1.address);
             expect(marketItem.c_Wallet).to.equal(creator.address);
             expect(marketItem.isCustodianWallet).to.be.true;
@@ -525,24 +680,39 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
-            let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceToken = getUsdToken(
+            const marketItem = await marketplace.getMarketItem(1);
+            const sellpriceToken = getUsdToken(
                 marketItem.sellpriceUSD,
                 TOKEN_PRICE,
                 PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
+                TOKEN_DECIMALS_18,
             );
-            await marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
             await marketplace
                 .connect(user1)
-                .resellToken(1, parseEther("0.2"), parseEther("0.0011"), false, { value: listingPriceSecondary });
+                .createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
+            await marketplace
+                .connect(user1)
+                .resellToken(
+                    1,
+                    parseEther("0.2"),
+                    parseEther("0.0011"),
+                    false,
+                    { value: listingPriceSecondary },
+                );
         });
 
         it("Should failed - Only s may unlist", async () => {
             await expect(
-                marketplace.connect(user2).resellToken(1, parseEther("0.2"), parseEther("0.0011"), true)
+                marketplace
+                    .connect(user2)
+                    .resellToken(
+                        1,
+                        parseEther("0.2"),
+                        parseEther("0.0011"),
+                        true,
+                    ),
             ).to.revertedWith("Only s may unlist");
         });
 
@@ -556,20 +726,34 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
             await expect(
-                marketplace.connect(user2).resellToken(2, parseEther("0.2"), parseEther("0.0011"), true)
+                marketplace
+                    .connect(user2)
+                    .resellToken(
+                        2,
+                        parseEther("0.2"),
+                        parseEther("0.0011"),
+                        true,
+                    ),
             ).to.revertedWith("Only s may unlist");
-            await expect(marketplace.resellToken(2, parseEther("0.2"), parseEther("0.0011"), true)).to.revertedWith(
-                "Only s may unlist"
-            );
+            await expect(
+                marketplace.resellToken(
+                    2,
+                    parseEther("0.2"),
+                    parseEther("0.0011"),
+                    true,
+                ),
+            ).to.revertedWith("Only s may unlist");
         });
 
         it("Should resellToken - unlist successfully", async () => {
-            await marketplace.connect(user1).resellToken(1, parseEther("0.2"), parseEther("0.0011"), true);
+            await marketplace
+                .connect(user1)
+                .resellToken(1, parseEther("0.2"), parseEther("0.0011"), true);
 
-            let marketItem = await marketplace.getMarketItem(1);
+            const marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
             expect(marketItem.c_Wallet).to.equal(creator.address);
             expect(marketItem.isCustodianWallet).to.be.true;
@@ -599,36 +783,53 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
-            let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceToken = getUsdToken(
+            const marketItem = await marketplace.getMarketItem(1);
+            const sellpriceToken = getUsdToken(
                 marketItem.sellpriceUSD,
                 TOKEN_PRICE,
                 PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
+                TOKEN_DECIMALS_18,
             );
-            await marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
             await marketplace
                 .connect(user1)
-                .resellToken(1, parseEther("0.2"), parseEther("0.0011"), false, { value: listingPriceSecondary });
+                .createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
+            await marketplace
+                .connect(user1)
+                .resellToken(
+                    1,
+                    parseEther("0.2"),
+                    parseEther("0.0011"),
+                    false,
+                    { value: listingPriceSecondary },
+                );
         });
 
         it("Should createMarketSale after resell successfully", async () => {
             let marketItem = await marketplace.getMarketItem(1);
-            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
-                getCommissionResellCustodialWallet(
-                    marketItem.sellpriceUSD,
-                    5,
-                    TOKEN_PRICE,
-                    PRICE_FEED_DECIMALS_8,
-                    TOKEN_DECIMALS_18
-                );
+            [
+                sellpriceToken,
+                creatorAmount,
+                charityAmount,
+                sellerAmount,
+                web3reAmount,
+            ] = getCommissionResellCustodialWallet(
+                marketItem.sellpriceUSD,
+                5,
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_18,
+            );
             await expect(() =>
-                marketplace.connect(user2).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken })
+                marketplace
+                    .connect(user2)
+                    .createMarketSale(1, ADDRESS_ZERO, {
+                        value: sellpriceToken,
+                    }),
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
-                [sellerAmount, charityAmount, creatorAmount, web3reAmount]
+                [sellerAmount, charityAmount, creatorAmount, web3reAmount],
             );
 
             expect(await nft.ownerOf(1)).to.equal(user2.address);
@@ -644,20 +845,27 @@ describe("Marketplace", () => {
 
         it("Should createMarketSale after resell successfully - paymentMethod: ERC20Token - decimals 24", async () => {
             let marketItem = await marketplace.getMarketItem(1);
-            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
-                getCommissionResellCustodialWallet(
-                    marketItem.sellpriceUSD,
-                    5,
-                    TOKEN_PRICE,
-                    PRICE_FEED_DECIMALS_8,
-                    TOKEN_DECIMALS_24
-                );
+            [
+                sellpriceToken,
+                creatorAmount,
+                charityAmount,
+                sellerAmount,
+                web3reAmount,
+            ] = getCommissionResellCustodialWallet(
+                marketItem.sellpriceUSD,
+                5,
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_24,
+            );
             await expect(() =>
-                marketplace.connect(user2).createMarketSale(1, mockERC20Token_24Decimals.address)
+                marketplace
+                    .connect(user2)
+                    .createMarketSale(1, mockERC20Token_24Decimals.address),
             ).to.changeTokenBalances(
                 mockERC20Token_24Decimals,
                 [user1, charity, creator, web3re],
-                [sellerAmount, charityAmount, creatorAmount, web3reAmount]
+                [sellerAmount, charityAmount, creatorAmount, web3reAmount],
             );
 
             expect(await nft.ownerOf(1)).to.equal(user2.address);
@@ -681,34 +889,51 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
             let marketItem = await marketplace.getMarketItem(2);
             sellpriceToken = getUsdToken(
                 marketItem.sellpriceUSD,
                 TOKEN_PRICE,
                 PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
+                TOKEN_DECIMALS_18,
             );
-            await marketplace.connect(user1).createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken });
             await marketplace
                 .connect(user1)
-                .resellToken(2, parseEther("0.2"), parseEther("0.0011"), false, { value: listingPriceSecondary });
+                .createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken });
+            await marketplace
+                .connect(user1)
+                .resellToken(
+                    2,
+                    parseEther("0.2"),
+                    parseEther("0.0011"),
+                    false,
+                    { value: listingPriceSecondary },
+                );
 
             marketItem = await marketplace.getMarketItem(2);
-            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
-                getCommissionResellCustodialWallet(
-                    marketItem.sellpriceUSD,
-                    1,
-                    TOKEN_PRICE,
-                    PRICE_FEED_DECIMALS_8,
-                    TOKEN_DECIMALS_18
-                );
+            [
+                sellpriceToken,
+                creatorAmount,
+                charityAmount,
+                sellerAmount,
+                web3reAmount,
+            ] = getCommissionResellCustodialWallet(
+                marketItem.sellpriceUSD,
+                1,
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_18,
+            );
             await expect(() =>
-                marketplace.connect(user2).createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken })
+                marketplace
+                    .connect(user2)
+                    .createMarketSale(2, ADDRESS_ZERO, {
+                        value: sellpriceToken,
+                    }),
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
-                [sellerAmount, charityAmount, creatorAmount, web3reAmount]
+                [sellerAmount, charityAmount, creatorAmount, web3reAmount],
             );
 
             expect(await nft.ownerOf(2)).to.equal(user2.address);
@@ -739,35 +964,52 @@ describe("Marketplace", () => {
                 parseEther("0.1"),
                 parseEther("0.05"),
                 parseEther("0.0001"),
-                { value: listingPrice }
+                { value: listingPrice },
             );
-            let marketItem = await marketplace.getMarketItem(1);
-            let sellpriceToken = getUsdToken(
+            const marketItem = await marketplace.getMarketItem(1);
+            const sellpriceToken = getUsdToken(
                 marketItem.sellpriceUSD,
                 TOKEN_PRICE,
                 PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
+                TOKEN_DECIMALS_18,
             );
-            await marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
             await marketplace
                 .connect(user1)
-                .resellToken(1, parseEther("0.2"), parseEther("0.0011"), false, { value: listingPriceSecondary });
+                .createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
+            await marketplace
+                .connect(user1)
+                .resellToken(
+                    1,
+                    parseEther("0.2"),
+                    parseEther("0.0011"),
+                    false,
+                    { value: listingPriceSecondary },
+                );
         });
         it("Should createMarketSale after resell successfully", async () => {
             let marketItem = await marketplace.getMarketItem(1);
-            [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount] =
-                getCommissionResellNonCustodialWallet(
-                    marketItem.sellpriceUSD,
-                    5,
-                    TOKEN_PRICE,
-                    PRICE_FEED_DECIMALS_8,
-                    TOKEN_DECIMALS_18
-                );
+            [
+                sellpriceToken,
+                creatorAmount,
+                charityAmount,
+                sellerAmount,
+                web3reAmount,
+            ] = getCommissionResellNonCustodialWallet(
+                marketItem.sellpriceUSD,
+                5,
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_18,
+            );
             await expect(() =>
-                marketplace.connect(user2).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken })
+                marketplace
+                    .connect(user2)
+                    .createMarketSale(1, ADDRESS_ZERO, {
+                        value: sellpriceToken,
+                    }),
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
-                [sellerAmount, charityAmount, creatorAmount, web3reAmount]
+                [sellerAmount, charityAmount, creatorAmount, web3reAmount],
             );
 
             expect(await nft.ownerOf(1)).to.equal(user2.address);
@@ -804,21 +1046,22 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
             marketItem = await marketplace.getMarketItem(2);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
-                marketItem.sellpriceUSD,
-                marketItem.reservePriceUSD,
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
-            );
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
+                getCommissionFirstTimeWithPhysical(
+                    marketItem.sellpriceUSD,
+                    marketItem.reservePriceUSD,
+                    TOKEN_PRICE,
+                    PRICE_FEED_DECIMALS_8,
+                    TOKEN_DECIMALS_18,
+                );
         });
         it("approveAddress failed - Ownable: caller is not the owner", async () => {
-            await expect(marketplace.connect(user1).approveAddress(1)).to.revertedWith(
-                "Ownable: caller is not the owner"
-            );
+            await expect(
+                marketplace.connect(user1).approveAddress(1),
+            ).to.revertedWith("Ownable: caller is not the owner");
         });
         it("Should transfer external minted NFT successfully", async () => {
             await marketplace.approveAddress(1);
@@ -827,21 +1070,27 @@ describe("Marketplace", () => {
         });
         it("Should transfer internal minted NFT successfully", async () => {
             await marketplace.approveAddress(2);
-            await marketplace.transferNFTTo(marketplace.address, user2.address, 2);
+            await marketplace.transferNFTTo(
+                marketplace.address,
+                user2.address,
+                2,
+            );
             expect(await nft.ownerOf(2)).to.equal(user2.address);
-            let marketItem = await marketplace.getMarketItem(2);
+            const marketItem = await marketplace.getMarketItem(2);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
             expect(marketItem.reservePriceUSD).to.equal(0);
             expect(marketItem.initialList).to.be.false;
             expect(marketItem.sold).to.be.true;
         });
         it("Should transfer internal minted NFT successfully - from user", async () => {
-            await marketplace.connect(user1).createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken });
+            await marketplace
+                .connect(user1)
+                .createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken });
 
             await marketplace.approveAddress(2);
             await marketplace.transferNFTTo(user1.address, user2.address, 2);
             expect(await nft.ownerOf(2)).to.equal(user2.address);
-            let marketItem = await marketplace.getMarketItem(2);
+            const marketItem = await marketplace.getMarketItem(2);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
             expect(marketItem.reservePriceUSD).to.equal(0);
             expect(marketItem.initialList).to.be.false;
@@ -870,7 +1119,7 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
 
             await marketplace
@@ -886,7 +1135,7 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
 
             await marketplace
@@ -902,17 +1151,20 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
-            let item = await marketplace.getMarketItem(1);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
-                item.sellpriceUSD,
-                item.reservePriceUSD,
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
-            );
-            await marketplace.connect(user2).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
+            const item = await marketplace.getMarketItem(1);
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
+                getCommissionFirstTimeWithPhysical(
+                    item.sellpriceUSD,
+                    item.reservePriceUSD,
+                    TOKEN_PRICE,
+                    PRICE_FEED_DECIMALS_8,
+                    TOKEN_DECIMALS_18,
+                );
+            await marketplace
+                .connect(user2)
+                .createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
 
             const marketItem = await marketplace.fetchMarketItems();
             expect(marketItem.length).to.equal(2);
@@ -934,7 +1186,7 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
 
             await marketplace
@@ -950,7 +1202,7 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
 
             await marketplace
@@ -966,18 +1218,23 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
             marketItem = await marketplace.getMarketItem(1);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] = getCommissionFirstTimeWithPhysical(
-                marketItem.sellpriceUSD,
-                marketItem.reservePriceUSD,
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18
-            );
-            await marketplace.connect(user2).createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
-            await marketplace.connect(user2).createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken });
+            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
+                getCommissionFirstTimeWithPhysical(
+                    marketItem.sellpriceUSD,
+                    marketItem.reservePriceUSD,
+                    TOKEN_PRICE,
+                    PRICE_FEED_DECIMALS_8,
+                    TOKEN_DECIMALS_18,
+                );
+            await marketplace
+                .connect(user2)
+                .createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
+            await marketplace
+                .connect(user2)
+                .createMarketSale(2, ADDRESS_ZERO, { value: sellpriceToken });
             expect(await marketplace.getItemSold()).to.equal(2);
             const myNFT = await marketplace.connect(user2).fetchMyNFTs();
             expect(myNFT.length).to.equal(2);
@@ -1000,7 +1257,7 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
 
             await marketplace
@@ -1016,7 +1273,7 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
 
             await marketplace
@@ -1032,10 +1289,12 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
 
-            const listItem = await marketplace.connect(user1).fetchItemsListed();
+            const listItem = await marketplace
+                .connect(user1)
+                .fetchItemsListed();
             expect(listItem.length).to.equal(2);
             expect(listItem[0].tokenId).to.equal(1);
             expect(listItem[1].tokenId).to.equal(2);
@@ -1055,44 +1314,67 @@ describe("Marketplace", () => {
                     parseEther("0.0001"),
                     {
                         value: listingPrice,
-                    }
+                    },
                 );
-            await expect(marketplace.connect(user2).withdrawFunds(owner.address, ADDRESS_ZERO)).to.revertedWith(
-                "Ownable: caller is not the owner"
-            );
-            await expect(() => marketplace.withdrawFunds(owner.address, ADDRESS_ZERO)).to.changeEtherBalances(
+            await expect(
+                marketplace
+                    .connect(user2)
+                    .withdrawFunds(owner.address, ADDRESS_ZERO),
+            ).to.revertedWith("Ownable: caller is not the owner");
+            await expect(() =>
+                marketplace.withdrawFunds(owner.address, ADDRESS_ZERO),
+            ).to.changeEtherBalances(
                 [marketplace, owner],
-                [listingPrice.mul(-1), listingPrice]
+                [listingPrice.mul(-1), listingPrice],
             );
 
-            await expect(marketplace.withdrawFunds(owner.address, mockERC20Token_18Decimals.address)).to.revertedWith(
-                "Nothing to withdraw"
-            );
+            await expect(
+                marketplace.withdrawFunds(
+                    owner.address,
+                    mockERC20Token_18Decimals.address,
+                ),
+            ).to.revertedWith("Nothing to withdraw");
 
-            await mockERC20Token_18Decimals.connect(user1).transfer(marketplace.address, parseEther("0.01"));
+            await mockERC20Token_18Decimals
+                .connect(user1)
+                .transfer(marketplace.address, parseEther("0.01"));
 
             await expect(() =>
-                marketplace.withdrawFunds(owner.address, mockERC20Token_18Decimals.address)
+                marketplace.withdrawFunds(
+                    owner.address,
+                    mockERC20Token_18Decimals.address,
+                ),
             ).to.changeTokenBalances(
                 mockERC20Token_18Decimals,
                 [marketplace, owner],
-                [parseEther("0.01").mul(-1), parseEther("0.01")]
+                [parseEther("0.01").mul(-1), parseEther("0.01")],
             );
         });
     });
 });
 
-const getTokenPrice = (tokenPrice: number, priceDecimals: number, tokenDecimals: number): BigNumber => {
+const getTokenPrice = (
+    tokenPrice: number,
+    priceDecimals: number,
+    tokenDecimals: number,
+): BigNumber => {
     let maticPriceBig = BigNumber.from(tokenPrice);
     if (priceDecimals < tokenDecimals) {
-        maticPriceBig = maticPriceBig.mul(BigNumber.from("10").pow(tokenDecimals - priceDecimals));
+        maticPriceBig = maticPriceBig.mul(
+            BigNumber.from("10").pow(tokenDecimals - priceDecimals),
+        );
     } else if (priceDecimals > tokenDecimals) {
-        maticPriceBig = maticPriceBig.mul(BigNumber.from("10").pow(priceDecimals - tokenDecimals));
+        maticPriceBig = maticPriceBig.mul(
+            BigNumber.from("10").pow(priceDecimals - tokenDecimals),
+        );
     }
     return maticPriceBig;
 };
 
-const matchUsdWithTokenDecimals = (amount: BigNumber, decimals: number): BigNumber => {
+const matchUsdWithTokenDecimals = (
+    amount: BigNumber,
+    decimals: number,
+): BigNumber => {
     if (decimals > 18) {
         amount = amount.mul(BigNumber.from("10").pow(decimals - 18));
     } else if (decimals < 18) {
@@ -1105,11 +1387,13 @@ const getUsdToken = (
     amount: BigNumber,
     tokenPrice: number,
     priceDecimals: number,
-    tokenDecimals: number
+    tokenDecimals: number,
 ): BigNumber => {
-    let maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
+    const maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
-    let rate = amount.mul(BigNumber.from("10").pow(tokenDecimals)).div(maticPriceBig);
+    const rate = amount
+        .mul(BigNumber.from("10").pow(tokenDecimals))
+        .div(maticPriceBig);
     return rate.mul(102).div(100);
 };
 
@@ -1117,11 +1401,13 @@ const getUsdOrgToken = (
     amount: BigNumber,
     tokenPrice: number,
     priceDecimals: number,
-    tokenDecimals: number
+    tokenDecimals: number,
 ): BigNumber => {
-    let maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
+    const maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
-    let rate = amount.mul(BigNumber.from("10").pow(tokenDecimals)).div(maticPriceBig);
+    const rate = amount
+        .mul(BigNumber.from("10").pow(tokenDecimals))
+        .div(maticPriceBig);
     return rate;
 };
 
@@ -1130,25 +1416,39 @@ const getCommissionFirstTimeWithPhysical = (
     marketItemReservePriceUSD: BigNumber,
     tokenPrice: number,
     priceDecimals: number,
-    tokenDecimals: number
+    tokenDecimals: number,
 ): [BigNumber, BigNumber, BigNumber, BigNumber] => {
-    let sellpriceToken = getUsdToken(marketItemSellPriceUSD, tokenPrice, priceDecimals, tokenDecimals);
-    let charityAmount = getUsdOrgToken(
+    const sellpriceToken = getUsdToken(
+        marketItemSellPriceUSD,
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
+    const charityAmount = getUsdOrgToken(
         marketItemSellPriceUSD.sub(marketItemReservePriceUSD),
         tokenPrice,
         priceDecimals,
-        tokenDecimals
+        tokenDecimals,
     )
         .mul(80)
         .div(100)
-        .add(getUsdOrgToken(marketItemReservePriceUSD, tokenPrice, priceDecimals, tokenDecimals).mul(20).div(100));
-    let creatorAmount = getUsdOrgToken(
+        .add(
+            getUsdOrgToken(
+                marketItemReservePriceUSD,
+                tokenPrice,
+                priceDecimals,
+                tokenDecimals,
+            )
+                .mul(20)
+                .div(100),
+        );
+    const creatorAmount = getUsdOrgToken(
         marketItemReservePriceUSD.mul(65).div(100),
         tokenPrice,
         priceDecimals,
-        tokenDecimals
+        tokenDecimals,
     );
-    let web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount);
+    const web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount);
     return [sellpriceToken, charityAmount, creatorAmount, web3reAmount];
 };
 
@@ -1156,22 +1456,27 @@ const getCommissionFirstTimeWithoutPhysical = (
     marketItemSellPriceUSD: BigNumber,
     tokenPrice: number,
     priceDecimals: number,
-    tokenDecimals: number
+    tokenDecimals: number,
 ): [BigNumber, BigNumber, BigNumber, BigNumber] => {
-    let sellpriceToken = getUsdToken(marketItemSellPriceUSD, tokenPrice, priceDecimals, tokenDecimals);
-    let charityAmount = getUsdOrgToken(
+    const sellpriceToken = getUsdToken(
+        marketItemSellPriceUSD,
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
+    const charityAmount = getUsdOrgToken(
         marketItemSellPriceUSD.mul(10).div(100),
         tokenPrice,
         priceDecimals,
-        tokenDecimals
+        tokenDecimals,
     );
-    let creatorAmount = getUsdOrgToken(
+    const creatorAmount = getUsdOrgToken(
         marketItemSellPriceUSD.mul(85).div(100),
         tokenPrice,
         priceDecimals,
-        tokenDecimals
+        tokenDecimals,
     );
-    let web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount);
+    const web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount);
     return [sellpriceToken, charityAmount, creatorAmount, web3reAmount];
 };
 
@@ -1180,32 +1485,46 @@ const getCommissionResellCustodialWallet = (
     royaltyPercent: number,
     tokenPrice: number,
     priceDecimals: number,
-    tokenDecimals: number
+    tokenDecimals: number,
 ): [BigNumber, BigNumber, BigNumber, BigNumber, BigNumber] => {
-    let sellpriceToken = getUsdToken(marketItemSellPriceUSD, tokenPrice, priceDecimals, tokenDecimals);
+    const sellpriceToken = getUsdToken(
+        marketItemSellPriceUSD,
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
     let creatorAmount = BigNumber.from(0);
     if (royaltyPercent > 2) {
         creatorAmount = getUsdOrgToken(
             marketItemSellPriceUSD.mul(2).div(100),
             tokenPrice,
             priceDecimals,
-            tokenDecimals
+            tokenDecimals,
         );
     }
-    let charityAmount = getUsdOrgToken(
+    const charityAmount = getUsdOrgToken(
         marketItemSellPriceUSD.mul(10).div(100),
         tokenPrice,
         priceDecimals,
-        tokenDecimals
+        tokenDecimals,
     );
-    let sellerAmount = getUsdOrgToken(
+    const sellerAmount = getUsdOrgToken(
         marketItemSellPriceUSD.mul(80).div(100),
         tokenPrice,
         priceDecimals,
-        tokenDecimals
+        tokenDecimals,
     );
-    let web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount).sub(sellerAmount);
-    return [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount];
+    const web3reAmount = sellpriceToken
+        .sub(charityAmount)
+        .sub(creatorAmount)
+        .sub(sellerAmount);
+    return [
+        sellpriceToken,
+        creatorAmount,
+        charityAmount,
+        sellerAmount,
+        web3reAmount,
+    ];
 };
 
 const getCommissionResellNonCustodialWallet = (
@@ -1213,27 +1532,41 @@ const getCommissionResellNonCustodialWallet = (
     royaltyPercent: number,
     tokenPrice: number,
     priceDecimals: number,
-    tokenDecimals: number
+    tokenDecimals: number,
 ): [BigNumber, BigNumber, BigNumber, BigNumber, BigNumber] => {
-    let sellpriceToken = getUsdToken(marketItemSellPriceUSD, tokenPrice, priceDecimals, tokenDecimals);
-    let creatorAmount = getUsdOrgToken(
+    const sellpriceToken = getUsdToken(
+        marketItemSellPriceUSD,
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
+    const creatorAmount = getUsdOrgToken(
         marketItemSellPriceUSD.mul(royaltyPercent).div(100),
         tokenPrice,
         priceDecimals,
-        tokenDecimals
+        tokenDecimals,
     );
-    let charityAmount = getUsdOrgToken(
+    const charityAmount = getUsdOrgToken(
         marketItemSellPriceUSD.mul(10).div(100),
         tokenPrice,
         priceDecimals,
-        tokenDecimals
+        tokenDecimals,
     );
-    let sellerAmount = getUsdOrgToken(
+    const sellerAmount = getUsdOrgToken(
         marketItemSellPriceUSD.mul(80).div(100),
         tokenPrice,
         priceDecimals,
-        tokenDecimals
+        tokenDecimals,
     );
-    let web3reAmount = sellpriceToken.sub(charityAmount).sub(creatorAmount).sub(sellerAmount);
-    return [sellpriceToken, creatorAmount, charityAmount, sellerAmount, web3reAmount];
+    const web3reAmount = sellpriceToken
+        .sub(charityAmount)
+        .sub(creatorAmount)
+        .sub(sellerAmount);
+    return [
+        sellpriceToken,
+        creatorAmount,
+        charityAmount,
+        sellerAmount,
+        web3reAmount,
+    ];
 };

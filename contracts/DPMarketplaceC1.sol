@@ -398,8 +398,8 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
                 priceData
             );
             charityTokenTotal = ((item.sellpriceUSD * 10) / 100).getOrgUsdToken(
-                    priceData
-                );
+                priceData
+            );
             web3reTokenTotal =
                 price2 -
                 creatorToken -

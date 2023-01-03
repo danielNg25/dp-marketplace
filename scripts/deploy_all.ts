@@ -19,12 +19,17 @@ async function main() {
     const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
     //Loading contracts' factory
     const DPNFT: DPNFT__factory = await ethers.getContractFactory("DPNFT");
-    const Marketplace: DPMarketplaceC1__factory = await ethers.getContractFactory("DPMarketplaceC1");
+    const Marketplace: DPMarketplaceC1__factory =
+        await ethers.getContractFactory("DPMarketplaceC1");
 
     // Deploy contracts
-    console.log("==================================================================");
+    console.log(
+        "==================================================================",
+    );
     console.log("DEPLOY CONTRACTS");
-    console.log("==================================================================");
+    console.log(
+        "==================================================================",
+    );
 
     console.log("ACCOUNT: " + admin);
 
@@ -37,7 +42,12 @@ async function main() {
     const nft = await DPNFT.deploy();
     await nft.deployed();
 
-    const marketplace = await Marketplace.deploy(admin, charityAddress, web3reAddress, nft.address);
+    const marketplace = await Marketplace.deploy(
+        admin,
+        charityAddress,
+        web3reAddress,
+        nft.address,
+    );
     await marketplace.deployed();
 
     console.log("Marketplace deployed at: ", marketplace.address);
@@ -51,7 +61,10 @@ async function main() {
 
     fs.writeFileSync("contracts.json", JSON.stringify(contractAddress));
 
-    await marketplace.setPaymentMethod(ADDRESS_ZERO, "0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada");
+    await marketplace.setPaymentMethod(
+        ADDRESS_ZERO,
+        "0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada",
+    );
 }
 
 // We recommend this pattern to be able to use async/await everywhere

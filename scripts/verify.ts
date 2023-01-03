@@ -7,7 +7,12 @@ async function main() {
     try {
         await hre.run("verify:verify", {
             address: contracts.marketplace,
-            constructorArguments: [admin, charityAddress, web3reAddress, contracts.nft],
+            constructorArguments: [
+                admin,
+                charityAddress,
+                web3reAddress,
+                contracts.nft,
+            ],
             hre,
         });
     } catch (err) {

@@ -38,15 +38,24 @@ describe("FeeManager", () => {
         charity = accounts[3];
         web3re = accounts[4];
 
-        const FeeManager: DPFeeManager__factory = await ethers.getContractFactory("DPFeeManager");
-        const MockERC20Token: MockERC20Token__factory = await ethers.getContractFactory("MockERC20Token");
-        const AggregatorV3Test: AggregatorV3Test__factory = await ethers.getContractFactory("AggregatorV3Test");
+        const FeeManager: DPFeeManager__factory =
+            await ethers.getContractFactory("DPFeeManager");
+        const MockERC20Token: MockERC20Token__factory =
+            await ethers.getContractFactory("MockERC20Token");
+        const AggregatorV3Test: AggregatorV3Test__factory =
+            await ethers.getContractFactory("AggregatorV3Test");
 
         feeManager = await FeeManager.deploy(charity.address, web3re.address);
         mockERC20Token = await MockERC20Token.deploy(TOKEN_DECIMALS_18);
-        aggregatorV3Test = await AggregatorV3Test.deploy(TOKEN_PRICE, TOKEN_DECIMALS_18);
+        aggregatorV3Test = await AggregatorV3Test.deploy(
+            TOKEN_PRICE,
+            TOKEN_DECIMALS_18,
+        );
 
-        await feeManager.setPaymentMethod(ADDRESS_ZERO, aggregatorV3Test.address);
+        await feeManager.setPaymentMethod(
+            ADDRESS_ZERO,
+            aggregatorV3Test.address,
+        );
 
         listingPrice = await feeManager.getListingPrice();
         listingPriceSecondary = await feeManager.getListingPriceSecondary();
@@ -54,51 +63,73 @@ describe("FeeManager", () => {
 
     describe("Deployment", () => {
         it("Should deploy successfully", async () => {
-            expect(await feeManager.getCharityAddress()).to.equal(charity.address);
-            expect(await feeManager.getWeb3reAddress()).to.equal(web3re.address);
+            expect(await feeManager.getCharityAddress()).to.equal(
+                charity.address,
+            );
+            expect(await feeManager.getWeb3reAddress()).to.equal(
+                web3re.address,
+            );
         });
     });
 
     describe("setPaymentMethod", () => {
         it("Should failed - Ownable: caller is not the owner", async () => {
             await expect(
-                feeManager.connect(user1).setPaymentMethod(mockERC20Token.address, aggregatorV3Test.address)
+                feeManager
+                    .connect(user1)
+                    .setPaymentMethod(
+                        mockERC20Token.address,
+                        aggregatorV3Test.address,
+                    ),
             ).to.revertedWith("Ownable: caller is not the owner");
         });
 
         it("Should failed - Payment method already set", async () => {
-            await expect(feeManager.setPaymentMethod(ADDRESS_ZERO, aggregatorV3Test.address)).to.revertedWith(
-                "Payment method already set"
-            );
+            await expect(
+                feeManager.setPaymentMethod(
+                    ADDRESS_ZERO,
+                    aggregatorV3Test.address,
+                ),
+            ).to.revertedWith("Payment method already set");
         });
 
         it("Should setPaymentMethod successfully", async () => {
-            await feeManager.setPaymentMethod(mockERC20Token.address, aggregatorV3Test.address);
+            await feeManager.setPaymentMethod(
+                mockERC20Token.address,
+                aggregatorV3Test.address,
+            );
 
             const paymentMethods = await feeManager.getPaymentMethods();
             expect(paymentMethods.length).to.equal(2);
             expect(paymentMethods[1]).to.equal(mockERC20Token.address);
 
-            const paymentMethod = await feeManager.getPaymentMethodDetail(mockERC20Token.address);
+            const paymentMethod = await feeManager.getPaymentMethodDetail(
+                mockERC20Token.address,
+            );
             expect(paymentMethod[0]).to.be.true;
             expect(paymentMethod[1]).to.equal(aggregatorV3Test.address);
         });
 
         it("Should removePaymentMethod failed - Payment method not set", async () => {
-            await expect(feeManager.removePaymentMethod(mockERC20Token.address)).to.revertedWith(
-                "Payment method not set"
-            );
+            await expect(
+                feeManager.removePaymentMethod(mockERC20Token.address),
+            ).to.revertedWith("Payment method not set");
         });
 
         it("Should removePaymentMethod successfully", async () => {
-            await feeManager.setPaymentMethod(mockERC20Token.address, aggregatorV3Test.address);
+            await feeManager.setPaymentMethod(
+                mockERC20Token.address,
+                aggregatorV3Test.address,
+            );
 
             await feeManager.removePaymentMethod(mockERC20Token.address);
 
             const paymentMethods = await feeManager.getPaymentMethods();
             expect(paymentMethods.length).to.equal(1);
 
-            const paymentMethod = await feeManager.getPaymentMethodDetail(mockERC20Token.address);
+            const paymentMethod = await feeManager.getPaymentMethodDetail(
+                mockERC20Token.address,
+            );
             expect(paymentMethod[0]).to.be.false;
             expect(paymentMethod[1]).to.equal(ADDRESS_ZERO);
         });
@@ -107,12 +138,16 @@ describe("FeeManager", () => {
     describe("updateListingPriceSecondary", () => {
         it("Should failed - Ownable: caller is not the owner.", async () => {
             await expect(
-                feeManager.connect(user1).updateListingPriceSecondary(listingPriceSecondary.sub(1))
+                feeManager
+                    .connect(user1)
+                    .updateListingPriceSecondary(listingPriceSecondary.sub(1)),
             ).to.revertedWith("Ownable: caller is not the owner");
         });
 
         it("Should update successfully.", async () => {
-            await feeManager.updateListingPriceSecondary(listingPriceSecondary.sub(1));
+            await feeManager.updateListingPriceSecondary(
+                listingPriceSecondary.sub(1),
+            );
         });
     });
 });

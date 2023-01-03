@@ -5,7 +5,10 @@
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "coverage": "npx hardhat coverage --testfiles \"tests/*.ts\" --solcoverjs ./.solcover.js"
+        "coverage": "npx hardhat coverage --testfiles \"tests/*.ts\" --solcoverjs ./.solcover.js",
+        "lint": "eslint . --ext .ts --fix ",
+        "format": "prettier --config .prettierrc . --write",
+        "solhint": "./node_modules/.bin/solhint -f table contracts/**/*.sol --fix"
     },
     "repository": {
         "type": "git",
@@ -28,11 +31,21 @@
         "@nomiclabs/hardhat-truffle5": "^2.0.2",
         "@nomiclabs/hardhat-web3": "^2.0.0",
         "@openzeppelin/hardhat-upgrades": "^1.12.0",
+        "@typescript-eslint/eslint-plugin": "^5.48.0",
+        "@typescript-eslint/parser": "^5.48.0",
         "chai": "^4.3.4",
+        "eslint": "^8.31.0",
+        "eslint-config-prettier": "^8.6.0",
+        "eslint-plugin-prettier": "^4.2.1",
         "ethers": "^5.4.1",
         "hardhat": "^2.4.3",
+        "husky": "^8.0.2",
         "mocha-junit-reporter": "^2.0.0",
         "mocha-multi-reporters": "^1.5.1",
+        "prettier": "^2.8.1",
+        "prettier-plugin-solidity": "^1.1.1",
+        "solhint": "^3.3.7",
+        "solhint-plugin-prettier": "^0.0.5",
         "web3": "^1.4.0"
     },
     "dependencies": {
@@ -53,5 +66,10 @@
         "ts-node": "^10.9.1",
         "typechain": "^8.1.0",
         "typescript": "^4.8.3"
+    },
+    "husky": {
+        "hooks": {
+            "pre-commit": "npm run format && npm run lint && npm runt solhint"
+        }
     }
 }
