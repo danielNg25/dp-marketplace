@@ -7,11 +7,11 @@ import "@openzeppelin/hardhat-upgrades";
 import "@typechain/hardhat";
 import "@nomicfoundation/hardhat-toolbox";
 import "solidity-coverage";
-
+import * as dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/types";
 import "hardhat-docgen";
 
-require("dotenv").config();
+dotenv.config();
 
 const config: HardhatUserConfig = {
     defaultNetwork: "hardhat",

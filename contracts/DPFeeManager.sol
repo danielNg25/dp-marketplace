@@ -16,8 +16,8 @@ contract DPFeeManager is Ownable, IDPFeeManager {
     EnumerableSet.AddressSet private _paymentMethods;
     mapping(address => address) private aggregatorV3Address;
 
-    uint256 listingPrice = 0.00001 ether;
-    uint256 listingPriceSecondary = 0.0001 ether;
+    uint256 private _listingPrice = 0.00001 ether;
+    uint256 private _listingPriceSecondary = 0.0001 ether;
 
     address private _charity;
     address private _web3re;
@@ -30,9 +30,9 @@ contract DPFeeManager is Ownable, IDPFeeManager {
     /* ========== MUTATIVE FUNCTIONS ========== */
 
     function updateListingPriceSecondary(
-        uint _listingPriceSecondary
+        uint256 listingPriceSecondary
     ) public payable onlyOwner {
-        listingPriceSecondary = _listingPriceSecondary;
+        _listingPriceSecondary = listingPriceSecondary;
     }
 
     function setPaymentMethod(
@@ -71,8 +71,8 @@ contract DPFeeManager is Ownable, IDPFeeManager {
                 _charity,
                 _web3re,
                 aggregatorV3Address[paymentMethod],
-                listingPrice,
-                listingPriceSecondary
+                _listingPrice,
+                _listingPriceSecondary
             );
     }
 
@@ -101,7 +101,7 @@ contract DPFeeManager is Ownable, IDPFeeManager {
     }
 
     function getListingPrice() external view override returns (uint256) {
-        return listingPrice;
+        return _listingPrice;
     }
 
     function getListingPriceSecondary()
@@ -110,6 +110,6 @@ contract DPFeeManager is Ownable, IDPFeeManager {
         override
         returns (uint256)
     {
-        return listingPriceSecondary;
+        return _listingPriceSecondary;
     }
 }

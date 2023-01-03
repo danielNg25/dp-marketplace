@@ -1,6 +1,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { BigNumber } from "ethers";
+import { parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
 import { DPFeeManager__factory } from "../typechain-types";
@@ -14,7 +15,6 @@ import { AggregatorV3Test } from "../typechain-types";
 describe("FeeManager", () => {
     let owner: SignerWithAddress;
     let user1: SignerWithAddress;
-    let user2: SignerWithAddress;
     let charity: SignerWithAddress;
     let web3re: SignerWithAddress;
 
@@ -26,7 +26,6 @@ describe("FeeManager", () => {
     let listingPriceSecondary: BigNumber;
 
     const TOKEN_PRICE = 88942317;
-    const TOKEN_DECIMALS_24 = 24;
     const TOKEN_DECIMALS_18 = 18;
     const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
 
@@ -34,7 +33,6 @@ describe("FeeManager", () => {
         const accounts: SignerWithAddress[] = await ethers.getSigners();
         owner = accounts[0];
         user1 = accounts[1];
-        user2 = accounts[2];
         charity = accounts[3];
         web3re = accounts[4];
 
@@ -69,6 +67,8 @@ describe("FeeManager", () => {
             expect(await feeManager.getWeb3reAddress()).to.equal(
                 web3re.address,
             );
+            expect(listingPrice).to.equal(parseEther("0.00001"));
+            expect(listingPriceSecondary).to.equal(parseEther("0.0001"));
         });
     });
 
@@ -94,10 +94,12 @@ describe("FeeManager", () => {
         });
 
         it("Should setPaymentMethod successfully", async () => {
-            await feeManager.setPaymentMethod(
-                mockERC20Token.address,
-                aggregatorV3Test.address,
-            );
+            await feeManager
+                .connect(owner)
+                .setPaymentMethod(
+                    mockERC20Token.address,
+                    aggregatorV3Test.address,
+                );
 
             const paymentMethods = await feeManager.getPaymentMethods();
             expect(paymentMethods.length).to.equal(2);

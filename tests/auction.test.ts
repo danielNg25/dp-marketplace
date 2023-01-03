@@ -1,5 +1,5 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { expect, use } from "chai";
+import { expect } from "chai";
 import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 
@@ -18,7 +18,6 @@ import { MockERC20Token } from "../typechain-types";
 import { parseEther } from "ethers/lib/utils";
 
 describe("Auction", () => {
-    const PERCENT_BASIS_POINT = BigNumber.from("10000");
     const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
     const TOKEN_PRICE = 10942317;
     const TOKEN_PRICE_LOW = 88942317;
@@ -270,7 +269,7 @@ describe("Auction", () => {
 
             expect(auctionItem.tokenId).to.equal(1);
             expect(auctionItem.seller).to.equal(owner.address);
-            expect(auctionItem.c_Wallet).to.equal(creator.address);
+            expect(auctionItem.creatorWallet).to.equal(creator.address);
             expect(auctionItem.isCustodianWallet).to.be.true;
             expect(auctionItem.royalty).to.equal(5);
             expect(auctionItem.withPhysical).to.be.true;
@@ -407,7 +406,7 @@ describe("Auction", () => {
 
             expect(auctionItem.tokenId).to.equal(1);
             expect(auctionItem.seller).to.equal(user1.address);
-            expect(auctionItem.c_Wallet).to.equal(creator.address);
+            expect(auctionItem.creatorWallet).to.equal(creator.address);
             expect(auctionItem.isCustodianWallet).to.be.true;
             expect(auctionItem.royalty).to.equal(5);
             expect(auctionItem.withPhysical).to.be.false;
@@ -542,7 +541,7 @@ describe("Auction", () => {
 
             expect(auctionItem.tokenId).to.equal(1);
             expect(auctionItem.seller).to.equal(user1.address);
-            expect(auctionItem.c_Wallet).to.equal(creator.address);
+            expect(auctionItem.creatorWallet).to.equal(creator.address);
             expect(auctionItem.isCustodianWallet).to.be.true;
             expect(auctionItem.royalty).to.equal(5);
             expect(auctionItem.withPhysical).to.be.false;
@@ -1027,12 +1026,6 @@ describe("Auction", () => {
         });
 
         it("Should acceptBid successfully - 18 decimals token", async () => {
-            const payAmount = getUsdToken(
-                parseEther("0.121"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18,
-            );
             await auction
                 .connect(user3)
                 .bidToken(
@@ -1063,12 +1056,6 @@ describe("Auction", () => {
         });
 
         it("Should acceptBid successfully - 24 decimals token", async () => {
-            let payAmount = getUsdToken(
-                parseEther("0.121"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18,
-            );
             await auction
                 .connect(user3)
                 .bidToken(
@@ -1077,12 +1064,6 @@ describe("Auction", () => {
                     parseEther("0.121"),
                 );
 
-            payAmount = getUsdToken(
-                parseEther("0.1331"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_24,
-            );
             await auction
                 .connect(user4)
                 .bidToken(
@@ -1186,12 +1167,6 @@ describe("Auction", () => {
         });
 
         it("Should acceptBid successfully - 18 decimals token", async () => {
-            const payAmount = getUsdToken(
-                parseEther("0.121"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18,
-            );
             await auction
                 .connect(user3)
                 .bidToken(
@@ -1218,12 +1193,6 @@ describe("Auction", () => {
         });
 
         it("Should acceptBid successfully - 24 decimals token", async () => {
-            let payAmount = getUsdToken(
-                parseEther("0.121"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18,
-            );
             await auction
                 .connect(user3)
                 .bidToken(
@@ -1232,12 +1201,6 @@ describe("Auction", () => {
                     parseEther("0.121"),
                 );
 
-            payAmount = getUsdToken(
-                parseEther("0.1331"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_24,
-            );
             await auction
                 .connect(user4)
                 .bidToken(
@@ -1360,12 +1323,6 @@ describe("Auction", () => {
         });
 
         it("Should acceptBid successfully - 18 decimals token", async () => {
-            const payAmount = getUsdToken(
-                parseEther("0.121"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18,
-            );
             await auction
                 .connect(user3)
                 .bidToken(
@@ -1398,12 +1355,6 @@ describe("Auction", () => {
         });
 
         it("Should acceptBid successfully - 24 decimals token", async () => {
-            let payAmount = getUsdToken(
-                parseEther("0.121"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18,
-            );
             await auction
                 .connect(user3)
                 .bidToken(
@@ -1411,13 +1362,6 @@ describe("Auction", () => {
                     mockERC20Token_18Decimals.address,
                     parseEther("0.121"),
                 );
-
-            payAmount = getUsdToken(
-                parseEther("0.1331"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_24,
-            );
             await auction
                 .connect(user4)
                 .bidToken(
@@ -1619,12 +1563,6 @@ describe("Auction", () => {
         });
 
         it("Should acceptBid successfully - 18 decimals token", async () => {
-            const payAmount = getUsdToken(
-                parseEther("0.121"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18,
-            );
             await auction
                 .connect(user3)
                 .bidToken(
@@ -1660,12 +1598,6 @@ describe("Auction", () => {
         });
 
         it("Should acceptBid successfully - 24 decimals token", async () => {
-            let payAmount = getUsdToken(
-                parseEther("0.121"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_18,
-            );
             await auction
                 .connect(user3)
                 .bidToken(
@@ -1674,12 +1606,6 @@ describe("Auction", () => {
                     parseEther("0.121"),
                 );
 
-            payAmount = getUsdToken(
-                parseEther("0.1331"),
-                TOKEN_PRICE,
-                PRICE_FEED_DECIMALS_8,
-                TOKEN_DECIMALS_24,
-            );
             await auction
                 .connect(user4)
                 .bidToken(
@@ -2071,12 +1997,15 @@ describe("Auction", () => {
             await ethers.provider.send("evm_increaseTime", [86400]);
             ethers.provider.send("evm_mine", []);
             const bidItem = await auction.getBidById(1);
-            let sellpriceToken: BigNumber;
-            let charityAmount: BigNumber;
-            let creatorAmount: BigNumber;
-            let web3reAmount: BigNumber;
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
-                getCommissionFirstTimeWithoutPhysical(bidItem.bidPriceToken);
+
+            const commission = getCommissionFirstTimeWithoutPhysical(
+                bidItem.bidPriceToken,
+            );
+
+            const sellpriceToken: BigNumber = commission[0];
+            const charityAmount: BigNumber = commission[1];
+            const creatorAmount: BigNumber = commission[2];
+            const web3reAmount: BigNumber = commission[3];
             await expect(() => auction.acceptBid(1)).to.changeTokenBalances(
                 mockERC20Token_24Decimals,
                 [auction, charity, creator, web3re],
@@ -2092,7 +2021,6 @@ describe("Auction", () => {
 
     describe("cancelAuction", () => {
         let timestamp: number;
-        let payAmount: BigNumber;
         beforeEach(async () => {
             timestamp = (await ethers.provider.getBlock("latest")).timestamp;
             await auction.createToken(
@@ -2219,7 +2147,6 @@ describe("Auction", () => {
 
     describe("reclaimAuction", () => {
         let timestamp: number;
-        let payAmount: BigNumber;
         beforeEach(async () => {
             timestamp = (await ethers.provider.getBlock("latest")).timestamp;
             await auction.createToken(
@@ -2560,10 +2487,8 @@ describe("Auction", () => {
             expect(startPriceOfAuction[0]).to.be.true;
             expect(startPriceOfAuction[1]).to.equal(payAmount);
 
-            const startPriceOfToken = await auction.getUsdTokenStartPriceOfToken(
-                1,
-                ADDRESS_ZERO,
-            );
+            const startPriceOfToken =
+                await auction.getUsdTokenStartPriceOfToken(1, ADDRESS_ZERO);
             payAmount = getUsdToken(
                 parseEther("0.2"),
                 TOKEN_PRICE,
@@ -2718,7 +2643,11 @@ const getUsdToken = (
     priceDecimals: number,
     tokenDecimals: number,
 ): BigNumber => {
-    const maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
+    const maticPriceBig = getTokenPrice(
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
     const rate = amount
         .mul(BigNumber.from("10").pow(tokenDecimals))
@@ -2732,7 +2661,11 @@ const getUsdOrgToken = (
     priceDecimals: number,
     tokenDecimals: number,
 ): BigNumber => {
-    const maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
+    const maticPriceBig = getTokenPrice(
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
     const rate = amount
         .mul(BigNumber.from("10").pow(tokenDecimals))

@@ -2,13 +2,12 @@ import * as hre from "hardhat";
 import * as fs from "fs";
 import { Signer } from "ethers";
 const ethers = hre.ethers;
-const upgrades = hre.upgrades;
+
 import { DPMarketplaceC1__factory } from "../typechain-types";
 import { DPNFT__factory } from "../typechain-types";
 
 import { DPMarketplaceC1 } from "../typechain-types";
 import { DPNFT } from "../typechain-types";
-import { parseEther } from "ethers/lib/utils";
 
 async function main() {
     //Loading accounts
@@ -16,7 +15,6 @@ async function main() {
     const admin = await accounts[0].getAddress();
     const charityAddress = "0xAD34dcA26Bc2b92287b47c3255b4F8A45E56aF46";
     const web3reAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-    const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
     //Loading contracts' factory
     const DPNFT: DPNFT__factory = await ethers.getContractFactory("DPNFT");
     const Marketplace: DPMarketplaceC1__factory =
@@ -39,10 +37,10 @@ async function main() {
 
     // await mockToken.mint(admin, parseEther("10"));
 
-    const nft = await DPNFT.deploy();
+    const nft: DPNFT = await DPNFT.deploy();
     await nft.deployed();
 
-    const marketplace = await Marketplace.deploy(
+    const marketplace: DPMarketplaceC1 = await Marketplace.deploy(
         admin,
         charityAddress,
         web3reAddress,
@@ -61,10 +59,10 @@ async function main() {
 
     fs.writeFileSync("contracts.json", JSON.stringify(contractAddress));
 
-    await marketplace.setPaymentMethod(
-        ADDRESS_ZERO,
-        "0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada",
-    );
+    // await marketplace.setPaymentMethod(
+    //     ADDRESS_ZERO,
+    //     "0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada",
+    // );
 }
 
 // We recommend this pattern to be able to use async/await everywhere

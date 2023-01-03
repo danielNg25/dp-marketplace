@@ -18,7 +18,6 @@ import { MockERC20Token } from "../typechain-types";
 import { parseEther } from "ethers/lib/utils";
 
 describe("Marketplace", () => {
-    const PERCENT_BASIS_POINT = BigNumber.from("10000");
     const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
     const TOKEN_PRICE = 88942317;
     const TOKEN_DECIMALS_24 = 24;
@@ -192,7 +191,7 @@ describe("Marketplace", () => {
             const marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.tokenId).to.equal(1);
             expect(marketItem.seller).to.equal(owner.address);
-            expect(marketItem.c_Wallet).to.equal(creator.address);
+            expect(marketItem.creatorWallet).to.equal(creator.address);
             expect(marketItem.isCustodianWallet).to.be.true;
             expect(marketItem.royalty).to.equal(5);
             expect(marketItem.withPhysical).to.be.true;
@@ -275,7 +274,7 @@ describe("Marketplace", () => {
             const marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.tokenId).to.equal(1);
             expect(marketItem.seller).to.equal(user1.address);
-            expect(marketItem.c_Wallet).to.equal(creator.address);
+            expect(marketItem.creatorWallet).to.equal(creator.address);
             expect(marketItem.isCustodianWallet).to.be.true;
             expect(marketItem.royalty).to.equal(5);
             expect(marketItem.withPhysical).to.be.false;
@@ -318,11 +317,9 @@ describe("Marketplace", () => {
 
         it("Should failed - missing asking price", async () => {
             await expect(
-                marketplace
-                    .connect(user1)
-                    .createMarketSale(1, ADDRESS_ZERO, {
-                        value: sellpriceToken.sub(1),
-                    }),
+                marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, {
+                    value: sellpriceToken.sub(1),
+                }),
             ).to.revertedWith("missing asking price");
         });
 
@@ -341,11 +338,9 @@ describe("Marketplace", () => {
                 (await marketplace.getUsdTokenPrice(1, ADDRESS_ZERO))[1],
             ).to.equal(sellpriceToken);
             await expect(() =>
-                marketplace
-                    .connect(user1)
-                    .createMarketSale(1, ADDRESS_ZERO, {
-                        value: sellpriceToken,
-                    }),
+                marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, {
+                    value: sellpriceToken,
+                }),
             ).to.changeEtherBalances(
                 [charity, creator, web3re],
                 [charityAmount, creatorAmount, web3reAmount],
@@ -448,11 +443,9 @@ describe("Marketplace", () => {
                 (await marketplace.getUsdTokenPrice(2, ADDRESS_ZERO))[1],
             ).to.equal(sellpriceToken);
             await expect(() =>
-                marketplace
-                    .connect(user1)
-                    .createMarketSale(2, ADDRESS_ZERO, {
-                        value: sellpriceToken.add(parseEther("0.01")),
-                    }),
+                marketplace.connect(user1).createMarketSale(2, ADDRESS_ZERO, {
+                    value: sellpriceToken.add(parseEther("0.01")),
+                }),
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
                 [
@@ -504,11 +497,9 @@ describe("Marketplace", () => {
 
         it("Should failed - missing asking price", async () => {
             await expect(
-                marketplace
-                    .connect(user1)
-                    .createMarketSale(1, ADDRESS_ZERO, {
-                        value: sellpriceToken.sub(1),
-                    }),
+                marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, {
+                    value: sellpriceToken.sub(1),
+                }),
             ).to.revertedWith("missing asking price");
         });
 
@@ -522,11 +513,9 @@ describe("Marketplace", () => {
                     TOKEN_DECIMALS_18,
                 );
             await expect(() =>
-                marketplace
-                    .connect(user1)
-                    .createMarketSale(1, ADDRESS_ZERO, {
-                        value: sellpriceToken,
-                    }),
+                marketplace.connect(user1).createMarketSale(1, ADDRESS_ZERO, {
+                    value: sellpriceToken,
+                }),
             ).to.changeEtherBalances(
                 [charity, creator, web3re],
                 [charityAmount, creatorAmount, web3reAmount],
@@ -657,7 +646,7 @@ describe("Marketplace", () => {
 
             const marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.seller).to.equal(user1.address);
-            expect(marketItem.c_Wallet).to.equal(creator.address);
+            expect(marketItem.creatorWallet).to.equal(creator.address);
             expect(marketItem.isCustodianWallet).to.be.true;
             expect(marketItem.royalty).to.equal(5);
             expect(marketItem.withPhysical).to.be.true;
@@ -755,7 +744,7 @@ describe("Marketplace", () => {
 
             const marketItem = await marketplace.getMarketItem(1);
             expect(marketItem.seller).to.equal(ADDRESS_ZERO);
-            expect(marketItem.c_Wallet).to.equal(creator.address);
+            expect(marketItem.creatorWallet).to.equal(creator.address);
             expect(marketItem.isCustodianWallet).to.be.true;
             expect(marketItem.royalty).to.equal(5);
             expect(marketItem.withPhysical).to.be.true;
@@ -822,11 +811,9 @@ describe("Marketplace", () => {
                 TOKEN_DECIMALS_18,
             );
             await expect(() =>
-                marketplace
-                    .connect(user2)
-                    .createMarketSale(1, ADDRESS_ZERO, {
-                        value: sellpriceToken,
-                    }),
+                marketplace.connect(user2).createMarketSale(1, ADDRESS_ZERO, {
+                    value: sellpriceToken,
+                }),
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
                 [sellerAmount, charityAmount, creatorAmount, web3reAmount],
@@ -926,11 +913,9 @@ describe("Marketplace", () => {
                 TOKEN_DECIMALS_18,
             );
             await expect(() =>
-                marketplace
-                    .connect(user2)
-                    .createMarketSale(2, ADDRESS_ZERO, {
-                        value: sellpriceToken,
-                    }),
+                marketplace.connect(user2).createMarketSale(2, ADDRESS_ZERO, {
+                    value: sellpriceToken,
+                }),
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
                 [sellerAmount, charityAmount, creatorAmount, web3reAmount],
@@ -1002,11 +987,9 @@ describe("Marketplace", () => {
                 TOKEN_DECIMALS_18,
             );
             await expect(() =>
-                marketplace
-                    .connect(user2)
-                    .createMarketSale(1, ADDRESS_ZERO, {
-                        value: sellpriceToken,
-                    }),
+                marketplace.connect(user2).createMarketSale(1, ADDRESS_ZERO, {
+                    value: sellpriceToken,
+                }),
             ).to.changeEtherBalances(
                 [user1, charity, creator, web3re],
                 [sellerAmount, charityAmount, creatorAmount, web3reAmount],
@@ -1027,9 +1010,7 @@ describe("Marketplace", () => {
     describe("admin transfer", () => {
         let marketItem;
         let sellpriceToken: BigNumber;
-        let charityAmount: BigNumber;
-        let creatorAmount: BigNumber;
-        let web3reAmount: BigNumber;
+
         beforeEach(async () => {
             await nft.setAdministratorStatus(minter.address, true);
             await nft.connect(minter).mint(user1.address, "");
@@ -1049,14 +1030,13 @@ describe("Marketplace", () => {
                     },
                 );
             marketItem = await marketplace.getMarketItem(2);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
-                getCommissionFirstTimeWithPhysical(
-                    marketItem.sellpriceUSD,
-                    marketItem.reservePriceUSD,
-                    TOKEN_PRICE,
-                    PRICE_FEED_DECIMALS_8,
-                    TOKEN_DECIMALS_18,
-                );
+            [sellpriceToken, , ,] = getCommissionFirstTimeWithPhysical(
+                marketItem.sellpriceUSD,
+                marketItem.reservePriceUSD,
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_18,
+            );
         });
         it("approveAddress failed - Ownable: caller is not the owner", async () => {
             await expect(
@@ -1101,9 +1081,6 @@ describe("Marketplace", () => {
     describe("getter functions", () => {
         let marketItem;
         let sellpriceToken: BigNumber;
-        let charityAmount: BigNumber;
-        let creatorAmount: BigNumber;
-        let web3reAmount: BigNumber;
 
         it("fetchMarketItems", async () => {
             await marketplace
@@ -1154,14 +1131,13 @@ describe("Marketplace", () => {
                     },
                 );
             const item = await marketplace.getMarketItem(1);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
-                getCommissionFirstTimeWithPhysical(
-                    item.sellpriceUSD,
-                    item.reservePriceUSD,
-                    TOKEN_PRICE,
-                    PRICE_FEED_DECIMALS_8,
-                    TOKEN_DECIMALS_18,
-                );
+            [sellpriceToken, , ,] = getCommissionFirstTimeWithPhysical(
+                item.sellpriceUSD,
+                item.reservePriceUSD,
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_18,
+            );
             await marketplace
                 .connect(user2)
                 .createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
@@ -1221,14 +1197,13 @@ describe("Marketplace", () => {
                     },
                 );
             marketItem = await marketplace.getMarketItem(1);
-            [sellpriceToken, charityAmount, creatorAmount, web3reAmount] =
-                getCommissionFirstTimeWithPhysical(
-                    marketItem.sellpriceUSD,
-                    marketItem.reservePriceUSD,
-                    TOKEN_PRICE,
-                    PRICE_FEED_DECIMALS_8,
-                    TOKEN_DECIMALS_18,
-                );
+            [sellpriceToken, , ,] = getCommissionFirstTimeWithPhysical(
+                marketItem.sellpriceUSD,
+                marketItem.reservePriceUSD,
+                TOKEN_PRICE,
+                PRICE_FEED_DECIMALS_8,
+                TOKEN_DECIMALS_18,
+            );
             await marketplace
                 .connect(user2)
                 .createMarketSale(1, ADDRESS_ZERO, { value: sellpriceToken });
@@ -1389,7 +1364,11 @@ const getUsdToken = (
     priceDecimals: number,
     tokenDecimals: number,
 ): BigNumber => {
-    const maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
+    const maticPriceBig = getTokenPrice(
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
     const rate = amount
         .mul(BigNumber.from("10").pow(tokenDecimals))
@@ -1403,7 +1382,11 @@ const getUsdOrgToken = (
     priceDecimals: number,
     tokenDecimals: number,
 ): BigNumber => {
-    const maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
+    const maticPriceBig = getTokenPrice(
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
     const rate = amount
         .mul(BigNumber.from("10").pow(tokenDecimals))

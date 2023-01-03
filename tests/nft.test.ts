@@ -1,16 +1,13 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { BigNumber } from "ethers";
+
 import { ethers } from "hardhat";
 
 import { DPNFT__factory } from "../typechain-types";
 
 import { DPNFT } from "../typechain-types";
 
-import { parseEther } from "ethers/lib/utils";
-
 describe("DPNFT", () => {
-    const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
     let owner: SignerWithAddress;
     let user1: SignerWithAddress;
     let user2: SignerWithAddress;
@@ -45,7 +42,7 @@ describe("DPNFT", () => {
         });
 
         it("Should set successfully", async () => {
-            await nft.setURIPrefix("alo.com");
+            await nft.connect(owner).setURIPrefix("alo.com");
             expect(await nft.baseURI()).to.equal("alo.com");
         });
     });

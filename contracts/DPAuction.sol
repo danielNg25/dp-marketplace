@@ -47,7 +47,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 tokenId;
         uint256 auctionId;
         address payable seller;
-        address payable c_Wallet;
+        address payable creatorWallet;
         bool isCustodianWallet;
         uint8 royalty;
         bool withPhysical;
@@ -77,7 +77,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     struct AuctionCreateParams {
         uint256 tokenId;
-        address payable c_Wallet;
+        address payable creatorWallet;
         bool isCustodianWallet;
         uint8 royalty;
         bool withPhysical;
@@ -94,7 +94,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 indexed tokenId,
         uint256 indexed auctionId,
         address seller,
-        address c_Wallet,
+        address creatorWallet,
         bool isCustodianWallet,
         uint8 royalty,
         bool withPhysical,
@@ -143,11 +143,11 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     constructor(
         address contractOwner_,
-        address NFTAddress_,
-        address DPFeeManager_
+        address nFTAddress_,
+        address dPFeeManager_
     ) {
-        FeeManager = IDPFeeManager(DPFeeManager_);
-        NFT = DPNFT(NFTAddress_);
+        FeeManager = IDPFeeManager(dPFeeManager_);
+        NFT = DPNFT(nFTAddress_);
         _transferOwnership(contractOwner_);
     }
 
@@ -189,7 +189,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     /* ========== MUTATIVE FUNCTIONS ========== */
     function createToken(
         string memory tokenURI,
-        address payable c_Wallet,
+        address payable creatorWallet,
         bool isCustodianWallet,
         uint8 royalty,
         bool withPhysical,
@@ -218,7 +218,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         createAuctionItem(
             AuctionCreateParams(
                 newTokenId,
-                c_Wallet,
+                creatorWallet,
                 isCustodianWallet,
                 royalty,
                 withPhysical,
@@ -250,7 +250,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         newAuction.tokenId = params.tokenId;
         newAuction.auctionId = auctionId;
         newAuction.seller = payable(msg.sender);
-        newAuction.c_Wallet = payable(params.c_Wallet);
+        newAuction.creatorWallet = payable(params.creatorWallet);
         newAuction.isCustodianWallet = params.isCustodianWallet;
         newAuction.royalty = params.royalty;
         newAuction.withPhysical = params.withPhysical;
@@ -269,7 +269,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
             params.tokenId,
             auctionId,
             msg.sender,
-            params.c_Wallet,
+            params.creatorWallet,
             params.isCustodianWallet,
             params.royalty,
             params.withPhysical,
@@ -304,7 +304,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         createAuctionItem(
             AuctionCreateParams(
                 tokenId,
-                oldAuctionItem.c_Wallet,
+                oldAuctionItem.creatorWallet,
                 oldAuctionItem.isCustodianWallet,
                 oldAuctionItem.royalty,
                 false,
@@ -322,7 +322,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     function createExternalMintedItem(
         uint256 tokenId,
-        address c_Wallet,
+        address creatorWallet,
         bool isCustodianWallet,
         uint8 royalty,
         uint256 startPriceUSD,
@@ -340,7 +340,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         createAuctionItem(
             AuctionCreateParams(
                 tokenId,
-                payable(c_Wallet),
+                payable(creatorWallet),
                 isCustodianWallet,
                 royalty,
                 false,
@@ -475,9 +475,9 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         if (auctionItem.initialList == true) {
             if (auctionItem.withPhysical == true) {
                 if ((bidItem.bidPriceUSD) > (auctionItem.reservePriceUSD)) {
-                    uint sr_Token = bidItem.bidPriceToken -
+                    uint srToken = bidItem.bidPriceToken -
                         bidItem.reservePriceToken;
-                    charityTokenTotal += (sr_Token * 80) / 100;
+                    charityTokenTotal += (srToken * 80) / 100;
                 }
 
                 creatorToken = (bidItem.reservePriceToken * 65) / 100;
@@ -497,7 +497,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
             }
             if (bidItem.paymentToken == address(0)) {
                 payable(feeInfo.charity).sendValue(charityTokenTotal);
-                payable(auctionItem.c_Wallet).sendValue(creatorToken);
+                payable(auctionItem.creatorWallet).sendValue(creatorToken);
                 payable(feeInfo.web3re).sendValue(web3reTokenTotal);
             } else {
                 IERC20(bidItem.paymentToken).safeTransfer(
@@ -505,7 +505,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                     charityTokenTotal
                 );
                 IERC20(bidItem.paymentToken).safeTransfer(
-                    auctionItem.c_Wallet,
+                    auctionItem.creatorWallet,
                     creatorToken
                 );
                 IERC20(bidItem.paymentToken).safeTransfer(
@@ -532,13 +532,13 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                 sellerToken -
                 charityTokenTotal;
             if (bidItem.paymentToken == address(0)) {
-                payable(auctionItem.c_Wallet).sendValue(creatorToken);
+                payable(auctionItem.creatorWallet).sendValue(creatorToken);
                 payable(auctionItem.seller).sendValue(sellerToken);
                 payable(feeInfo.charity).sendValue(charityTokenTotal);
                 payable(feeInfo.web3re).sendValue(web3reTokenTotal);
             } else {
                 IERC20(bidItem.paymentToken).safeTransfer(
-                    auctionItem.c_Wallet,
+                    auctionItem.creatorWallet,
                     creatorToken
                 );
                 IERC20(bidItem.paymentToken).safeTransfer(

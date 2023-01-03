@@ -70,7 +70,7 @@
     },
     "husky": {
         "hooks": {
-            "pre-commit": "npm run format && npm run lint && npm runt solhint"
+            "pre-commit": "npm run format && npm run solhint && npm run lint"
         }
     }
 }

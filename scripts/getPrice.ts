@@ -1,5 +1,6 @@
 import { BigNumber } from "ethers";
-import { formatEther, parseEther } from "ethers/lib/utils";
+import { parseEther } from "ethers/lib/utils";
+
 const getTokenPrice = (
     tokenPrice: number,
     priceDecimals: number,
@@ -29,6 +30,7 @@ const matchUsdWithTokenDecimals = (
     }
     return amount;
 };
+
 const getUsdToken = (
     amount: BigNumber,
     tokenPrice: number,
@@ -36,7 +38,11 @@ const getUsdToken = (
     tokenDecimals: number,
 ): BigNumber => {
     const e18 = BigNumber.from("1000000000000000000");
-    const maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
+    const maticPriceBig = getTokenPrice(
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
     const rate = amount.mul(e18).div(maticPriceBig);
     return rate.mul(102).div(100);
@@ -49,13 +55,17 @@ const getUsdOrgToken = (
     tokenDecimals: number,
 ): BigNumber => {
     const e18 = BigNumber.from("1000000000000000000");
-    const maticPriceBig = getTokenPrice(tokenPrice, priceDecimals, tokenDecimals);
+    const maticPriceBig = getTokenPrice(
+        tokenPrice,
+        priceDecimals,
+        tokenDecimals,
+    );
     amount = matchUsdWithTokenDecimals(amount, tokenDecimals);
     const rate = amount.mul(e18).div(maticPriceBig);
     return rate;
 };
 
-const getCommissionFirstTimeWithPhysical = (
+export const getCommissionFirstTimeWithPhysical = (
     marketItemSellPriceUSD: BigNumber,
     marketItemReservePriceUSD: BigNumber,
     tokenPrice: number,
@@ -96,7 +106,7 @@ const getCommissionFirstTimeWithPhysical = (
     return [sellpriceToken, charityAmount, creatorAmount, web3reAmount];
 };
 
-const getCommissionFirstTimeWithoutPhysical = (
+export const getCommissionFirstTimeWithoutPhysical = (
     marketItemSellPriceUSD: BigNumber,
     tokenPrice: number,
     priceDecimals: number,
@@ -124,7 +134,7 @@ const getCommissionFirstTimeWithoutPhysical = (
     return [sellpriceToken, charityAmount, creatorAmount, web3reAmount];
 };
 
-const getCommissionResellCustodialWallet = (
+export const getCommissionResellCustodialWallet = (
     marketItemSellPriceUSD: BigNumber,
     royaltyPercent: number,
     tokenPrice: number,
@@ -171,7 +181,7 @@ const getCommissionResellCustodialWallet = (
     ];
 };
 
-const getCommissionResellNonCustodialWallet = (
+export const getCommissionResellNonCustodialWallet = (
     marketItemSellPriceUSD: BigNumber,
     tokenPrice: number,
     priceDecimals: number,
@@ -214,10 +224,4 @@ const getCommissionResellNonCustodialWallet = (
     ];
 };
 
-const result = getCommissionResellCustodialWallet(
-    parseEther("0.2"),
-    5,
-    89805572,
-    8,
-    18,
-);
+getCommissionResellCustodialWallet(parseEther("0.2"), 5, 89805572, 8, 18);
