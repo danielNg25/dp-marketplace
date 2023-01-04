@@ -3,7 +3,7 @@ pragma solidity ^0.8.4;
 
 import "./libraries/PriceConverter.sol";
 import "./libraries/DPFeeManagerStruct.sol";
-import "./DPNFT.sol";
+import "./interface/IDPNFT.sol";
 import "./interface/IDPFeeManager.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -24,7 +24,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     EnumerableSet.UintSet private _listedTokenIds;
     Counters.Counter private _itemsSold;
 
-    DPNFT public NFT;
+    IDPNFT public NFT;
     IDPFeeManager public FeeManager;
 
     mapping(uint256 => uint256) private tokenToAuctionId;
@@ -147,7 +147,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         address dPFeeManager_
     ) {
         FeeManager = IDPFeeManager(dPFeeManager_);
-        NFT = DPNFT(nFTAddress_);
+        NFT = IDPNFT(nFTAddress_);
         _transferOwnership(contractOwner_);
     }
 
@@ -189,6 +189,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     /* ========== MUTATIVE FUNCTIONS ========== */
     function createToken(
         string memory tokenURI,
+        IDPNFT.Type tokenType,
         address payable creatorWallet,
         bool isCustodianWallet,
         uint8 royalty,
@@ -209,7 +210,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
             "Value must be = listing price"
         );
 
-        uint256 newTokenId = NFT.mint(msg.sender, tokenURI);
+        uint256 newTokenId = NFT.mint(msg.sender, tokenURI, tokenType);
 
         if (withPhysical != true) {
             reservePriceUSD = 0x0;

@@ -4,7 +4,7 @@
     "description": "Var POC Smart Contract",
     "main": "index.js",
     "scripts": {
-        "prepare": "husky install",
+        "prepare": "husky install && npx husky add .husky/pre-commit \"npm run format && npm run solhint && npm run lint\"",
         "test": "echo \"Error: no test specified\" && exit 1",
         "coverage": "npx hardhat coverage --testfiles \"tests/*.ts\" --solcoverjs ./.solcover.js",
         "lint": "eslint . --ext .ts --fix ",
