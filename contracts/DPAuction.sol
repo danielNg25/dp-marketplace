@@ -75,6 +75,20 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         BidStatus status;
     }
 
+    struct CreateTokenParams {
+        string tokenURI;
+        IDPNFT.Type tokenType;
+        uint256 seriesId;
+        address payable creatorWallet;
+        bool isCustodianWallet;
+        uint8 royalty;
+        uint256 startPriceUSD;
+        uint256 reservePriceUSD;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 price;
+    }
+
     struct AuctionCreateParams {
         uint256 tokenId;
         address payable creatorWallet;
@@ -188,20 +202,10 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     /* ========== MUTATIVE FUNCTIONS ========== */
     function createToken(
-        string memory tokenURI,
-        IDPNFT.Type tokenType,
-        address payable creatorWallet,
-        bool isCustodianWallet,
-        uint8 royalty,
-        bool withPhysical,
-        uint256 startPriceUSD,
-        uint256 reservePriceUSD,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 price
+        CreateTokenParams memory params
     ) external payable nonReentrant whenNotPaused returns (uint) {
         require(
-            startPriceUSD >= reservePriceUSD,
+            params.startPriceUSD >= params.reservePriceUSD,
             "Start price must be >= reserve price"
         );
 
@@ -210,24 +214,28 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
             "Value must be = listing price"
         );
 
-        uint256 newTokenId = NFT.mint(msg.sender, tokenURI, tokenType);
+        uint256 newTokenId;
 
+        bool withPhysical = (params.tokenType == IDPNFT.Type.HasPhysical);
         if (withPhysical != true) {
-            reservePriceUSD = 0x0;
+            params.reservePriceUSD = 0x0;
+            newTokenId = NFT.mint(msg.sender, params.tokenURI, params.tokenType);
+        } else {
+            newTokenId = NFT.mintSeriesToken(msg.sender, params.tokenURI, params.seriesId, msg.sender);
         }
 
         createAuctionItem(
             AuctionCreateParams(
                 newTokenId,
-                creatorWallet,
-                isCustodianWallet,
-                royalty,
+                params.creatorWallet,
+                params.isCustodianWallet,
+                params.royalty,
                 withPhysical,
-                startPriceUSD,
-                reservePriceUSD,
-                startTime,
-                endTime,
-                price,
+                params.startPriceUSD,
+                params.reservePriceUSD,
+                params.startTime,
+                params.endTime,
+                params.price,
                 true
             )
         );

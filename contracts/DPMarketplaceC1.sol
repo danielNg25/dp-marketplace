@@ -123,10 +123,10 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
     function createToken(
         string memory tokenURI,
         IDPNFT.Type tokenType,
+        uint256 seriesId,
         address payable creatorWallet,
         bool isCustodianWallet,
         uint8 royalty,
-        bool withPhysical,
         uint256 sellpriceUSD,
         uint256 reservePriceUSD,
         uint256 price
@@ -140,10 +140,14 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
             msg.value == FeeManager.getListingPrice(),
             "Price must be = listing price"
         );
-        uint256 newTokenId = NFT.mint(msg.sender, tokenURI, tokenType);
+        uint256 newTokenId;
 
+        bool withPhysical = (tokenType == IDPNFT.Type.HasPhysical);
         if (withPhysical != true) {
             reservePriceUSD = 0x0;
+            newTokenId = NFT.mint(msg.sender, tokenURI, tokenType);
+        } else {
+            newTokenId = NFT.mintSeriesToken(msg.sender, tokenURI, seriesId, msg.sender);
         }
 
         createMarketItem(

@@ -144,15 +144,16 @@ contract DPNFT is
         );
 
         if (typeOfToken == Type.Fragment) {
-            bytes memory _initializationCalldata =
-                abi.encodeWithSignature(
-                    "initialize(address,uint256,string,string)",
-                    address(this),
-                    tokenId,
-                    name(),
-                    symbol()
-                );
-            address vault = address(new InitializedProxy(tokenVaultLogic, _initializationCalldata));
+            bytes memory _initializationCalldata = abi.encodeWithSignature(
+                "initialize(address,uint256,string,string)",
+                address(this),
+                tokenId,
+                name(),
+                symbol()
+            );
+            address vault = address(
+                new InitializedProxy(tokenVaultLogic, _initializationCalldata)
+            );
             vaults[tokenId] = vault;
         }
 
@@ -178,17 +179,19 @@ contract DPNFT is
         uint256 tokenId = totalSupply() + 1;
 
         require(seriesId <= totalSeries, "DPNFT: Invalid series id");
-        
+
         if (seriesId == 0) {
             seriesId = ++totalSeries;
             ownerOfSeries[seriesId] = caller;
         } else {
-            require(ownerOfSeries[seriesId] == caller, "DPNFT: Only series owner");
+            require(
+                ownerOfSeries[seriesId] == caller,
+                "DPNFT: Only series owner"
+            );
         }
 
         _series[seriesId].add(tokenId);
         tokenIdToSeries[tokenId] = seriesId;
-        
 
         _mintToken(tokenId, receiver, uri, Type.Series);
 
@@ -226,7 +229,7 @@ contract DPNFT is
      * @param receivers The address that will receive the minted token.
      * @param uris The uri to mint.
      * @return tokenId of new nft
-     * 
+     *
      * @notice caller of this function have to safely check whether sender is owner of the series
      */
     function mintBatchSeriesToken(
@@ -244,7 +247,12 @@ contract DPNFT is
 
         uint256[] memory returnIds = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
-            uint256 tokenId = mintSeriesToken(receivers[i], uris[i], seriesIds[i], caller);
+            uint256 tokenId = mintSeriesToken(
+                receivers[i],
+                uris[i],
+                seriesIds[i],
+                caller
+            );
             returnIds[i] = tokenId;
         }
         return returnIds;
