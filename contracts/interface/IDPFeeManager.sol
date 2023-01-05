@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../libraries/DPFeeManagerStruct.sol";
-
 interface IDPFeeManager {
+    struct FeeInformation {
+        address charity;
+        address web3re;
+        address aggregatorV3;
+        uint256 listingPrice;
+        uint256 secondaryListingPrice;
+    }
+
     function getFeeInformation(
         address paymentMethod
-    ) external view returns (FeeManagerStruct.FeeInformation memory);
+    ) external view returns (FeeInformation memory);
 
     function getCharityAddress() external view returns (address);
 

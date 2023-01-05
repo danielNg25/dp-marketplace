@@ -2,10 +2,9 @@
 pragma solidity ^0.8.4;
 
 import "./libraries/PriceConverter.sol";
-import "./libraries/DPFeeManagerStruct.sol";
 import "./interface/IDPNFT.sol";
 import "./interface/IDPFeeManager.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -13,6 +12,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
@@ -29,18 +29,35 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
 
     mapping(uint256 => MarketItem) private idToMarketItem;
 
+    uint256 public constant PERCENT_BASIS_POINT = 10000; // 100%
+
     struct MarketItem {
         uint256 tokenId;
         address payable seller;
         address payable creatorWallet;
         bool isCustodianWallet;
         uint8 royalty;
-        bool withPhysical;
         uint256 sellpriceUSD;
         uint256 reservePriceUSD;
         uint256 price;
         bool initialList;
         bool sold;
+        address[] beneficiaries;
+        uint256[] percents;
+    }
+
+    struct TokenCreateParams {
+        string tokenURI;
+        IDPNFT.Type tokenType;
+        uint256 seriesId;
+        address payable creatorWallet;
+        bool isCustodianWallet;
+        uint8 royalty;
+        uint256 sellpriceUSD;
+        uint256 reservePriceUSD;
+        uint256 price;
+        address[] beneficiaries;
+        uint256[] percents;
     }
 
     /* ========== EVENTS ========== */
@@ -51,11 +68,12 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         address creatorWallet,
         bool isCustodianWallet,
         uint8 royalty,
-        bool withPhysical,
         uint256 sellpriceUSD,
         uint256 reservePriceUSD,
         uint256 price,
-        bool initialList
+        bool initialList,
+        address[] beneficiaries,
+        uint256[] percents
     );
     event MarketItemResold(
         uint256 indexed tokenId,
@@ -63,11 +81,12 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         address creatorWallet,
         bool isCustodianWallet,
         uint8 royalty,
-        bool withPhysical,
         uint256 sellpriceUSD,
         uint256 reservePriceUSD,
         uint256 price,
-        bool initialList
+        bool initialList,
+        address[] beneficiaries,
+        uint256[] percents
     );
     event MarketItemSold(
         uint256 indexed tokenId,
@@ -121,58 +140,44 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
 
     /* ========== MUTATIVE FUNCTIONS ========== */
     function createToken(
-        string memory tokenURI,
-        IDPNFT.Type tokenType,
-        uint256 seriesId,
-        address payable creatorWallet,
-        bool isCustodianWallet,
-        uint8 royalty,
-        uint256 sellpriceUSD,
-        uint256 reservePriceUSD,
-        uint256 price
+        TokenCreateParams memory params
     ) external payable nonReentrant whenNotPaused returns (uint) {
         require(
-            sellpriceUSD >= reservePriceUSD,
+            params.sellpriceUSD >= params.reservePriceUSD,
             "Price must be >= reserve price"
         );
-        require(price > 0, "Price must be at least 1 wei");
+        require(params.price > 0, "Price must be at least 1 wei");
         require(
             msg.value == FeeManager.getListingPrice(),
             "Price must be = listing price"
         );
+        
         uint256 newTokenId;
-
-        bool withPhysical = (tokenType == IDPNFT.Type.HasPhysical);
-        if (withPhysical != true) {
-            reservePriceUSD = 0x0;
-            newTokenId = NFT.mint(msg.sender, tokenURI, tokenType);
+        if (params.tokenType == IDPNFT.Type.HasPhysical) {
+            params.reservePriceUSD = 0x0;
+            newTokenId = NFT.mint(msg.sender, params.tokenURI, params.tokenType);
         } else {
-            newTokenId = NFT.mintSeriesToken(msg.sender, tokenURI, seriesId, msg.sender);
+            newTokenId = NFT.mintSeriesToken(
+                msg.sender,
+                params.tokenURI,
+                params.seriesId,
+                msg.sender
+            );
         }
 
         createMarketItem(
             newTokenId,
-            creatorWallet,
-            isCustodianWallet,
-            royalty,
-            withPhysical,
-            sellpriceUSD,
-            reservePriceUSD,
-            price,
-            true
+            params.creatorWallet,
+            params.isCustodianWallet,
+            params.royalty,
+            params.sellpriceUSD,
+            params.reservePriceUSD,
+            params.price,
+            true,
+            params.beneficiaries,
+            params.percents
         );
-        emit MarketItemCreated(
-            newTokenId,
-            msg.sender,
-            creatorWallet,
-            isCustodianWallet,
-            royalty,
-            withPhysical,
-            sellpriceUSD,
-            reservePriceUSD,
-            price,
-            true
-        );
+    
         return newTokenId;
     }
 
@@ -181,12 +186,21 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         address payable creatorWallet,
         bool isCustodianWallet,
         uint8 royalty,
-        bool withPhysical,
         uint256 sellpriceUSD,
         uint256 reservePriceUSD,
         uint256 price,
-        bool initialList
+        bool initialList,
+        address[] memory beneficiaries,
+        uint256[] memory percents
     ) internal {
+        require(beneficiaries.length == percents.length, "Invalid beneficiaries length");
+        
+        uint256 totalSharePercent;
+        for (uint256 i = 0; i < percents.length; i++){
+            totalSharePercent += percents[i];
+        }
+        require(totalSharePercent <= PERCENT_BASIS_POINT, "Invalid share percent");
+
         _listedTokenIds.add(tokenId);
 
         idToMarketItem[tokenId] = MarketItem(
@@ -195,23 +209,40 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
             payable(creatorWallet),
             isCustodianWallet,
             royalty,
-            withPhysical,
             sellpriceUSD,
             reservePriceUSD,
             price,
             initialList,
-            false
+            false,
+            beneficiaries,
+            percents
         );
 
         _approveAddress(tokenId);
         NFT.transferFrom(msg.sender, address(this), tokenId);
+
+        emit MarketItemCreated(
+            tokenId,
+            msg.sender,
+            creatorWallet,
+            isCustodianWallet,
+            royalty,
+            sellpriceUSD,
+            reservePriceUSD,
+            price,
+            true,
+            beneficiaries,
+            percents
+        );
     }
 
     function resellToken(
         uint256 tokenId,
         uint256 sellpriceUSD,
         uint256 price,
-        bool _unlist
+        bool _unlist,
+        address[] memory beneficiaries,
+        uint256[] memory percents
     ) external payable nonReentrant whenNotPaused {
         MarketItem memory marketItem = idToMarketItem[tokenId];
         if (_unlist) {
@@ -232,10 +263,20 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
                 "Price must be = Sec list price"
             );
 
+            require(beneficiaries.length == percents.length, "Invalid beneficiaries length");
+        
+            uint256 totalSharePercent;
+            for (uint256 i = 0; i < percents.length; i++){
+                totalSharePercent += percents[i];
+            }
+            require(totalSharePercent <= PERCENT_BASIS_POINT, "Invalid share percent");
+
             idToMarketItem[tokenId].sold = false;
             idToMarketItem[tokenId].sellpriceUSD = sellpriceUSD;
             idToMarketItem[tokenId].price = price;
             idToMarketItem[tokenId].seller = payable(msg.sender);
+            idToMarketItem[tokenId].beneficiaries = beneficiaries;
+            idToMarketItem[tokenId].percents = percents;
             _itemsSold.decrement();
             _approveAddress(tokenId);
             NFT.transferFrom(msg.sender, address(this), tokenId);
@@ -246,11 +287,12 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
                 marketItem.creatorWallet,
                 marketItem.isCustodianWallet,
                 marketItem.royalty,
-                marketItem.withPhysical,
                 sellpriceUSD,
                 marketItem.reservePriceUSD,
                 price,
-                marketItem.initialList
+                marketItem.initialList,
+                beneficiaries,
+                percents
             );
         }
     }
@@ -261,7 +303,9 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         bool isCustodianWallet,
         uint8 royalty,
         uint256 sellpriceUSD,
-        uint256 price
+        uint256 price,
+        address[] memory beneficiaries,
+        uint256[] memory percents
     ) external payable nonReentrant whenNotPaused {
         require(NFT.ownerOf(tokenId) == msg.sender, "Only item o");
         require(!_listedTokenIds.contains(tokenId), "Item already listed");
@@ -275,24 +319,12 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
             payable(creatorWallet),
             isCustodianWallet,
             royalty,
-            false,
             sellpriceUSD,
             0,
             price,
-            false
-        );
-
-        emit MarketItemCreated(
-            tokenId,
-            msg.sender,
-            creatorWallet,
-            isCustodianWallet,
-            royalty,
             false,
-            sellpriceUSD,
-            0,
-            price,
-            false
+            beneficiaries,
+            percents
         );
     }
 
@@ -300,7 +332,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         uint256 tokenId,
         address paymentToken
     ) external payable nonReentrant whenNotPaused {
-        FeeManagerStruct.FeeInformation memory feeInfo = FeeManager
+        IDPFeeManager.FeeInformation memory feeInfo = FeeManager
             .getFeeInformation(paymentToken);
         require(
             feeInfo.aggregatorV3 != address(0),
@@ -334,7 +366,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         uint web3reTokenTotal;
 
         if (item.initialList == true) {
-            if (item.withPhysical == true) {
+            if (item.reservePriceUSD > 0) {
                 if ((item.sellpriceUSD) > (item.reservePriceUSD)) {
                     uint srUSD = item.sellpriceUSD - item.reservePriceUSD;
                     uint srToken = srUSD.getOrgUsdToken(priceData);
@@ -416,15 +448,22 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
                 charityTokenTotal;
             if (paymentToken == address(0)) {
                 payable(item.creatorWallet).sendValue(creatorToken);
-                payable(item.seller).sendValue(sellerToken);
                 payable(feeInfo.charity).sendValue(charityTokenTotal);
                 payable(feeInfo.web3re).sendValue(web3reTokenTotal);
+
+                uint256 sellerAmount = sellerToken;
+                for(uint256 i = 0; i <= item.beneficiaries.length; i++) {
+                    uint256 beneficiaryAmount = sellerToken * item.percents[i] / PERCENT_BASIS_POINT;
+                    payable(item.beneficiaries[i]).sendValue(beneficiaryAmount);
+                    sellerAmount -= beneficiaryAmount;
+                }
+
+                payable(item.seller).sendValue(sellerAmount);
             } else {
                 IERC20(paymentToken).safeTransfer(
                     item.creatorWallet,
                     creatorToken
                 );
-                IERC20(paymentToken).safeTransfer(item.seller, sellerToken);
                 IERC20(paymentToken).safeTransfer(
                     feeInfo.charity,
                     charityTokenTotal
@@ -433,6 +472,15 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
                     feeInfo.web3re,
                     web3reTokenTotal
                 );
+
+                uint256 sellerAmount = sellerToken;
+                for(uint256 i = 0; i <= item.beneficiaries.length; i++) {
+                    uint256 beneficiaryAmount = sellerToken * item.percents[i] / PERCENT_BASIS_POINT;
+                    IERC20(paymentToken).safeTransfer(item.beneficiaries[i], beneficiaryAmount);
+                    sellerAmount -= beneficiaryAmount;
+                }
+
+                IERC20(paymentToken).safeTransfer(item.seller, sellerAmount);
             }
 
             _itemsSold.increment();

@@ -2,10 +2,12 @@
 pragma solidity ^0.8.4;
 
 import "./libraries/PriceConverter.sol";
-import "./libraries/DPFeeManagerStruct.sol";
+import "./libraries/BidFiatSignature.sol";
+// import "./libraries/AuctionStruct.sol";
+
 import "./interface/IDPNFT.sol";
 import "./interface/IDPFeeManager.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -13,6 +15,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
@@ -20,22 +23,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     using Counters for Counters.Counter;
     using EnumerableSet for EnumerableSet.UintSet;
     using PriceConverter for uint256;
-
-    EnumerableSet.UintSet private _listedTokenIds;
-    Counters.Counter private _itemsSold;
-
-    IDPNFT public NFT;
-    IDPFeeManager public FeeManager;
-
-    mapping(uint256 => uint256) private tokenToAuctionId;
-    mapping(uint256 => AuctionItem) private idToAuctionItem;
-    mapping(uint256 => BidItem) private idToBidItem;
-    mapping(address => uint256) public adminHoldPayment;
-
-    uint256 public constant PERCENT_BASIS_POINT = 10000; // 100%
-    uint256 public minPriceIncreasePercent = 100; // 1%
-    uint256 public totalAuctions;
-    uint256 public totalBids;
+    using BidFiatSignature for bytes;
 
     enum BidStatus {
         Lived,
@@ -44,13 +32,12 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     }
 
     struct AuctionItem {
-        uint256 tokenId;
         uint256 auctionId;
+        uint256 tokenId;
         address payable seller;
         address payable creatorWallet;
         bool isCustodianWallet;
         uint8 royalty;
-        bool withPhysical;
         uint256 startPriceUSD;
         uint256 reservePriceUSD;
         uint256 price;
@@ -60,11 +47,14 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 endTime;
         uint256[] listBidId;
         uint256 highestBidId;
+        address[] beneficiaries;
+        uint256[] percents;
     }
 
     struct BidItem {
-        uint256 tokenId;
         uint256 bidId;
+        uint256 tokenId;
+        uint256 auctionId;
         address bidder;
         address paymentToken;
         uint256 bidPriceUSD;
@@ -72,10 +62,11 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 bidPriceWithFeeToken;
         uint256 reservePriceToken;
         uint80 oracleRoundId;
+        bool isFiat;
         BidStatus status;
     }
 
-    struct CreateTokenParams {
+    struct TokenCreateParams {
         string tokenURI;
         IDPNFT.Type tokenType;
         uint256 seriesId;
@@ -87,6 +78,8 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 startTime;
         uint256 endTime;
         uint256 price;
+        address[] beneficiaries;
+        uint256[] percents;
     }
 
     struct AuctionCreateParams {
@@ -94,30 +87,64 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         address payable creatorWallet;
         bool isCustodianWallet;
         uint8 royalty;
-        bool withPhysical;
         uint256 startPriceUSD;
         uint256 reservePriceUSD;
         uint256 startTime;
         uint256 endTime;
         uint256 price;
         bool initialList;
+        address[] beneficiaries;
+        uint256[] percents;
     }
+
+    struct BidCreateParams {
+        uint256 tokenId;
+        uint256 auctionId;
+        address bidder;
+        address paymentToken;
+        uint256 priceUSD;
+        uint256 priceToken;
+        uint256 priceWithFeeToken;
+        uint256 reservePriceToken;
+        uint80 oracleRoundId;
+        bool isFiat;
+    }
+
+    EnumerableSet.UintSet private _listedTokenIds;
+    Counters.Counter private _itemsSold;
+
+    IDPNFT public NFT;
+    IDPFeeManager public FeeManager;
+
+    address private _verifier;
+
+    mapping(uint256 => uint256) private tokenToAuctionId;
+    mapping(uint256 => AuctionItem) private idToAuctionItem;
+    mapping(uint256 => BidItem) private idToBidItem;
+    mapping(address => uint256) public adminHoldPayment;
+
+    uint256 public constant PERCENT_BASIS_POINT = 10000; // 100%
+    uint256 public minPriceIncreasePercent = 100; // 1%
+    uint256 public totalAuctions;
+    uint256 public totalBids;
+
     /* ========== EVENTS ========== */
 
     event AuctionItemCreated(
-        uint256 indexed tokenId,
         uint256 indexed auctionId,
+        uint256 indexed tokenId,
         address seller,
         address creatorWallet,
         bool isCustodianWallet,
         uint8 royalty,
-        bool withPhysical,
         uint256 startPriceUSD,
         uint256 reservePriceUSD,
         uint256 price,
         bool initialList,
         uint256 startTime,
-        uint256 endTime
+        uint256 endTime,
+        address[] beneficiaries,
+        uint256[] percents
     );
     event AuctionCanceled(uint256 indexed auctionId);
     event AuctionAccepted(uint256 indexed auctionId, uint256 indexed bidId);
@@ -126,6 +153,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     event BidCreated(
         uint256 indexed bidId,
         uint256 indexed tokenId,
+        uint256 indexed auctionId,
         address bidder,
         address paymentToken,
         uint256 bidPriceUSD,
@@ -133,6 +161,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 bidPriceWithFeeToken,
         uint256 reservePriceToken,
         uint80 oracleRoundId,
+        bool isFiat,
         BidStatus status
     );
     event BidEdited(
@@ -202,7 +231,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     /* ========== MUTATIVE FUNCTIONS ========== */
     function createToken(
-        CreateTokenParams memory params
+        TokenCreateParams memory params
     ) external payable nonReentrant whenNotPaused returns (uint) {
         require(
             params.startPriceUSD >= params.reservePriceUSD,
@@ -216,79 +245,39 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
         uint256 newTokenId;
 
-        bool withPhysical = (params.tokenType == IDPNFT.Type.HasPhysical);
-        if (withPhysical != true) {
+        if (params.tokenType == IDPNFT.Type.HasPhysical) {
             params.reservePriceUSD = 0x0;
-            newTokenId = NFT.mint(msg.sender, params.tokenURI, params.tokenType);
+            newTokenId = NFT.mint(
+                msg.sender,
+                params.tokenURI,
+                params.tokenType
+            );
         } else {
-            newTokenId = NFT.mintSeriesToken(msg.sender, params.tokenURI, params.seriesId, msg.sender);
+            newTokenId = NFT.mintSeriesToken(
+                msg.sender,
+                params.tokenURI,
+                params.seriesId,
+                msg.sender
+            );
         }
 
-        createAuctionItem(
+        _createAuctionItem(
             AuctionCreateParams(
                 newTokenId,
                 params.creatorWallet,
                 params.isCustodianWallet,
                 params.royalty,
-                withPhysical,
                 params.startPriceUSD,
                 params.reservePriceUSD,
                 params.startTime,
                 params.endTime,
                 params.price,
-                true
+                true,
+                params.beneficiaries,
+                params.percents
             )
         );
         return newTokenId;
-    }
-
-    function createAuctionItem(AuctionCreateParams memory params) internal {
-        require(params.price > 0, "Price must be at least 1 wei");
-        require(
-            params.endTime > params.startTime &&
-                params.startTime >= block.timestamp,
-            "Invalid time"
-        );
-        _listedTokenIds.add(params.tokenId);
-
-        totalAuctions++;
-        uint256 auctionId = totalAuctions;
-        AuctionItem storage newAuction = idToAuctionItem[auctionId];
-        tokenToAuctionId[params.tokenId] = auctionId;
-
-        newAuction.tokenId = params.tokenId;
-        newAuction.auctionId = auctionId;
-        newAuction.seller = payable(msg.sender);
-        newAuction.creatorWallet = payable(params.creatorWallet);
-        newAuction.isCustodianWallet = params.isCustodianWallet;
-        newAuction.royalty = params.royalty;
-        newAuction.withPhysical = params.withPhysical;
-        newAuction.startPriceUSD = params.startPriceUSD;
-        newAuction.reservePriceUSD = params.reservePriceUSD;
-        newAuction.price = params.price;
-        newAuction.initialList = params.initialList;
-        newAuction.sold = false;
-        newAuction.startTime = params.startTime;
-        newAuction.endTime = params.endTime;
-
-        _approveAddress(params.tokenId);
-        NFT.transferFrom(msg.sender, address(this), params.tokenId);
-
-        emit AuctionItemCreated(
-            params.tokenId,
-            auctionId,
-            msg.sender,
-            params.creatorWallet,
-            params.isCustodianWallet,
-            params.royalty,
-            params.withPhysical,
-            params.startPriceUSD,
-            params.reservePriceUSD,
-            params.price,
-            params.initialList,
-            params.startTime,
-            params.endTime
-        );
     }
 
     function reAuctionToken(
@@ -296,7 +285,9 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 startPriceUSD,
         uint256 price,
         uint256 startTime,
-        uint256 endTime
+        uint256 endTime,
+        address[] memory beneficiaries,
+        uint256[] memory percents
     ) external payable nonReentrant whenNotPaused {
         uint256 oldAuctionId = tokenToAuctionId[tokenId];
         AuctionItem memory oldAuctionItem = idToAuctionItem[oldAuctionId];
@@ -310,19 +301,20 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
             "Value must be = Secondary list price"
         );
 
-        createAuctionItem(
+        _createAuctionItem(
             AuctionCreateParams(
                 tokenId,
                 oldAuctionItem.creatorWallet,
                 oldAuctionItem.isCustodianWallet,
                 oldAuctionItem.royalty,
-                false,
                 startPriceUSD,
                 0,
                 startTime,
                 endTime,
                 price,
-                false
+                false,
+                beneficiaries,
+                percents
             )
         );
 
@@ -337,7 +329,9 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 startPriceUSD,
         uint256 price,
         uint256 startTime,
-        uint256 endTime
+        uint256 endTime,
+        address[] memory beneficiaries,
+        uint256[] memory percents
     ) external payable nonReentrant whenNotPaused {
         require(NFT.ownerOf(tokenId) == msg.sender, "Only item owner");
         require(!_listedTokenIds.contains(tokenId), "Item already listed");
@@ -346,57 +340,37 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
             "Value must be = Secondary list price"
         );
 
-        createAuctionItem(
+        _createAuctionItem(
             AuctionCreateParams(
                 tokenId,
                 payable(creatorWallet),
                 isCustodianWallet,
                 royalty,
-                false,
                 startPriceUSD,
                 0,
                 startTime,
                 endTime,
                 price,
-                false
+                false,
+                beneficiaries,
+                percents
             )
         );
     }
 
     function bidToken(
-        uint256 tokenId,
+        uint256 auctionId,
         address paymentToken,
         uint256 priceUSD
     ) external payable nonReentrant whenNotPaused {
-        uint256 auctionId = tokenToAuctionId[tokenId];
         AuctionItem memory auctionItem = idToAuctionItem[auctionId];
-        require(
-            block.timestamp >= auctionItem.startTime &&
-                block.timestamp <= auctionItem.endTime,
-            "Not in auction time"
-        );
+        _checkValidBid(auctionItem, priceUSD);
 
-        FeeManagerStruct.FeeInformation memory feeInfo = FeeManager
+        IDPFeeManager.FeeInformation memory feeInfo = FeeManager
             .getFeeInformation(paymentToken);
         require(
             feeInfo.aggregatorV3 != address(0),
             "Payment token not supported"
-        );
-
-        require(auctionItem.seller != msg.sender, "Seller cannot bid");
-
-        require(
-            priceUSD >= auctionItem.startPriceUSD,
-            "Price lower than start price"
-        );
-        uint256 bidLength = auctionItem.listBidId.length;
-        require(
-            bidLength == 0 ||
-                priceUSD >
-                (idToBidItem[auctionItem.highestBidId].bidPriceUSD *
-                    (PERCENT_BASIS_POINT + minPriceIncreasePercent)) /
-                    PERCENT_BASIS_POINT,
-            "Price less than min price"
         );
 
         PriceConverter.PriceData memory priceData = PriceConverter.getPrice(
@@ -426,142 +400,181 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
         adminHoldPayment[paymentToken] += priceWithFeeToken;
 
-        totalBids++;
-        uint256 bidId = totalBids;
-        BidItem memory newBidItem = BidItem(
-            tokenId,
-            bidId,
-            msg.sender,
-            paymentToken,
-            priceUSD,
-            priceToken,
-            priceWithFeeToken,
-            reservePriceToken,
-            priceData.oracleRoundId,
-            BidStatus.Lived
-        );
-
-        idToBidItem[bidId] = newBidItem;
-        idToAuctionItem[auctionId].listBidId.push(bidId);
-        idToAuctionItem[auctionId].highestBidId = bidId;
-
-        emit BidCreated(
-            bidId,
-            tokenId,
-            msg.sender,
-            paymentToken,
-            priceUSD,
-            priceToken,
-            priceWithFeeToken,
-            reservePriceToken,
-            priceData.oracleRoundId,
-            BidStatus.Lived
+        _createBidToken(
+            BidCreateParams(
+                auctionItem.tokenId,
+                auctionId,
+                msg.sender,
+                paymentToken,
+                priceUSD,
+                priceToken,
+                priceWithFeeToken,
+                reservePriceToken,
+                priceData.oracleRoundId,
+                false
+            )
         );
     }
 
-    function acceptBid(uint256 tokenId) external nonReentrant whenNotPaused {
-        uint256 auctionId = tokenToAuctionId[tokenId];
+    function bidTokenFiat(
+        uint256 auctionId,
+        uint256 priceUSD,
+        bytes memory signature
+    ) external payable nonReentrant whenNotPaused {
+        AuctionItem memory auctionItem = idToAuctionItem[auctionId];
+        _checkValidBid(auctionItem, priceUSD);
+
+        require(
+            signature.verifyBidFiatMessage(
+                msg.sender,
+                auctionId,
+                auctionItem.tokenId,
+                priceUSD,
+                address(this),
+                address(NFT),
+                _verifier
+            ),
+            "Invalid signature"
+        );
+
+        _createBidToken(
+            BidCreateParams(
+                auctionItem.tokenId,
+                auctionId,
+                msg.sender,
+                address(0),
+                priceUSD,
+                0,
+                0,
+                0,
+                0,
+                true
+            )
+        );
+    }
+
+    function acceptBid(
+        uint256 auctionId,
+        uint256 bidId
+    ) external nonReentrant whenNotPaused {
         AuctionItem memory auctionItem = idToAuctionItem[auctionId];
 
+        require(auctionItem.seller == msg.sender, "Only seller");
         require(auctionItem.endTime < block.timestamp, "Auction not end");
         require(!auctionItem.sold, "Auction sold");
 
         uint256 bidLength = auctionItem.listBidId.length;
         require(bidLength > 0, "No bid created");
-        BidItem memory bidItem = idToBidItem[auctionItem.highestBidId];
+        BidItem memory bidItem = idToBidItem[bidId];
 
-        require(bidItem.status == BidStatus.Lived, "Bid accepted");
+        require(bidItem.status == BidStatus.Lived, "Bid accepted or cancelled");
 
-        FeeManagerStruct.FeeInformation memory feeInfo = FeeManager
-            .getFeeInformation(bidItem.paymentToken);
+        if (!bidItem.isFiat) {
+            IDPFeeManager.FeeInformation memory feeInfo = FeeManager
+                .getFeeInformation(bidItem.paymentToken);
 
-        uint creatorToken = 0x0;
-        uint sellerToken = 0x0;
-        uint charityTokenTotal = 0x0;
-        uint web3reTokenTotal;
+            uint creatorToken = 0x0;
+            uint sellerToken = 0x0;
+            uint charityTokenTotal = 0x0;
+            uint web3reTokenTotal;
 
-        adminHoldPayment[bidItem.paymentToken] -= bidItem.bidPriceWithFeeToken;
-        if (auctionItem.initialList == true) {
-            if (auctionItem.withPhysical == true) {
-                if ((bidItem.bidPriceUSD) > (auctionItem.reservePriceUSD)) {
-                    uint srToken = bidItem.bidPriceToken -
-                        bidItem.reservePriceToken;
-                    charityTokenTotal += (srToken * 80) / 100;
+            adminHoldPayment[bidItem.paymentToken] -= bidItem
+                .bidPriceWithFeeToken;
+            if (auctionItem.initialList == true) {
+                if (auctionItem.reservePriceUSD > 0) {
+                    if ((bidItem.bidPriceUSD) > (auctionItem.reservePriceUSD)) {
+                        uint srToken = bidItem.bidPriceToken -
+                            bidItem.reservePriceToken;
+                        charityTokenTotal += (srToken * 80) / 100;
+                    }
+
+                    creatorToken = (bidItem.reservePriceToken * 65) / 100;
+                    charityTokenTotal += (bidItem.reservePriceToken * 20) / 100;
+
+                    web3reTokenTotal =
+                        bidItem.bidPriceWithFeeToken -
+                        creatorToken -
+                        charityTokenTotal;
+                } else {
+                    creatorToken = (bidItem.bidPriceToken * 85) / 100;
+                    charityTokenTotal = (bidItem.bidPriceToken * 10) / 100;
+                    web3reTokenTotal =
+                        bidItem.bidPriceWithFeeToken -
+                        creatorToken -
+                        charityTokenTotal;
+                }
+                if (bidItem.paymentToken == address(0)) {
+                    payable(feeInfo.charity).sendValue(charityTokenTotal);
+                    payable(auctionItem.creatorWallet).sendValue(creatorToken);
+                    payable(feeInfo.web3re).sendValue(web3reTokenTotal);
+                } else {
+                    IERC20(bidItem.paymentToken).safeTransfer(
+                        feeInfo.charity,
+                        charityTokenTotal
+                    );
+                    IERC20(bidItem.paymentToken).safeTransfer(
+                        auctionItem.creatorWallet,
+                        creatorToken
+                    );
+                    IERC20(bidItem.paymentToken).safeTransfer(
+                        feeInfo.web3re,
+                        web3reTokenTotal
+                    );
+                }
+            } else {
+                if (auctionItem.isCustodianWallet == true) {
+                    if (auctionItem.royalty >= 2) {
+                        creatorToken = (bidItem.bidPriceToken * 2) / 100;
+                    }
+                } else {
+                    creatorToken =
+                        (bidItem.bidPriceToken * auctionItem.royalty) /
+                        100;
                 }
 
-                creatorToken = (bidItem.reservePriceToken * 65) / 100;
-                charityTokenTotal += (bidItem.reservePriceToken * 20) / 100;
-
-                web3reTokenTotal =
-                    bidItem.bidPriceWithFeeToken -
-                    creatorToken -
-                    charityTokenTotal;
-            } else {
-                creatorToken = (bidItem.bidPriceToken * 85) / 100;
+                sellerToken = (bidItem.bidPriceToken * 80) / 100;
                 charityTokenTotal = (bidItem.bidPriceToken * 10) / 100;
                 web3reTokenTotal =
                     bidItem.bidPriceWithFeeToken -
                     creatorToken -
+                    sellerToken -
                     charityTokenTotal;
-            }
-            if (bidItem.paymentToken == address(0)) {
-                payable(feeInfo.charity).sendValue(charityTokenTotal);
-                payable(auctionItem.creatorWallet).sendValue(creatorToken);
-                payable(feeInfo.web3re).sendValue(web3reTokenTotal);
-            } else {
-                IERC20(bidItem.paymentToken).safeTransfer(
-                    feeInfo.charity,
-                    charityTokenTotal
-                );
-                IERC20(bidItem.paymentToken).safeTransfer(
-                    auctionItem.creatorWallet,
-                    creatorToken
-                );
-                IERC20(bidItem.paymentToken).safeTransfer(
-                    feeInfo.web3re,
-                    web3reTokenTotal
-                );
-            }
-        } else {
-            if (auctionItem.isCustodianWallet == true) {
-                if (auctionItem.royalty >= 2) {
-                    creatorToken = (bidItem.bidPriceToken * 2) / 100;
-                }
-            } else {
-                creatorToken =
-                    (bidItem.bidPriceToken * auctionItem.royalty) /
-                    100;
-            }
+                if (bidItem.paymentToken == address(0)) {
+                    payable(auctionItem.creatorWallet).sendValue(creatorToken);
+                    payable(feeInfo.charity).sendValue(charityTokenTotal);
+                    payable(feeInfo.web3re).sendValue(web3reTokenTotal);
 
-            sellerToken = (bidItem.bidPriceToken * 80) / 100;
-            charityTokenTotal = (bidItem.bidPriceToken * 10) / 100;
-            web3reTokenTotal =
-                bidItem.bidPriceWithFeeToken -
-                creatorToken -
-                sellerToken -
-                charityTokenTotal;
-            if (bidItem.paymentToken == address(0)) {
-                payable(auctionItem.creatorWallet).sendValue(creatorToken);
-                payable(auctionItem.seller).sendValue(sellerToken);
-                payable(feeInfo.charity).sendValue(charityTokenTotal);
-                payable(feeInfo.web3re).sendValue(web3reTokenTotal);
-            } else {
-                IERC20(bidItem.paymentToken).safeTransfer(
-                    auctionItem.creatorWallet,
-                    creatorToken
-                );
-                IERC20(bidItem.paymentToken).safeTransfer(
-                    auctionItem.seller,
-                    sellerToken
-                );
-                IERC20(bidItem.paymentToken).safeTransfer(
-                    feeInfo.charity,
-                    charityTokenTotal
-                );
-                IERC20(bidItem.paymentToken).safeTransfer(
-                    feeInfo.web3re,
-                    web3reTokenTotal
-                );
+                    uint256 sellerAmount = sellerToken;
+                    for(uint256 i = 0; i <= auctionItem.beneficiaries.length; i++) {
+                        uint256 beneficiaryAmount = sellerToken * auctionItem.percents[i] / PERCENT_BASIS_POINT;
+                        payable(auctionItem.beneficiaries[i]).sendValue(beneficiaryAmount);
+                        sellerAmount -= beneficiaryAmount;
+                    }
+
+                    payable(auctionItem.seller).sendValue(sellerAmount);
+                } else {
+                    IERC20(bidItem.paymentToken).safeTransfer(
+                        auctionItem.creatorWallet,
+                        creatorToken
+                    );
+                    IERC20(bidItem.paymentToken).safeTransfer(
+                        feeInfo.charity,
+                        charityTokenTotal
+                    );
+                    IERC20(bidItem.paymentToken).safeTransfer(
+                        feeInfo.web3re,
+                        web3reTokenTotal
+                    );
+
+                    uint256 sellerAmount = sellerToken;
+                    for(uint256 i = 0; i <= auctionItem.beneficiaries.length; i++) {
+                        uint256 beneficiaryAmount = sellerToken * auctionItem.percents[i] / PERCENT_BASIS_POINT;
+                        IERC20(bidItem.paymentToken).safeTransfer(auctionItem.beneficiaries[i], beneficiaryAmount);
+                        sellerAmount -= beneficiaryAmount;
+                    }
+
+                    IERC20(bidItem.paymentToken).safeTransfer(auctionItem.seller, sellerAmount);
+                    }
             }
         }
 
@@ -571,7 +584,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
         idToBidItem[auctionItem.highestBidId].status = BidStatus.Accepted;
 
-        NFT.transferFrom(address(this), bidItem.bidder, tokenId);
+        NFT.transferFrom(address(this), bidItem.bidder, auctionItem.tokenId);
         emit AuctionAccepted(auctionId, auctionItem.highestBidId);
     }
 
@@ -580,27 +593,12 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 priceUSD
     ) external payable nonReentrant whenNotPaused {
         BidItem memory bidItem = idToBidItem[bidId];
-        uint256 auctionId = tokenToAuctionId[bidItem.tokenId];
-        AuctionItem memory auctionItem = idToAuctionItem[auctionId];
+        require(!bidItem.isFiat, "Use editBidFiat instead");
+        AuctionItem memory auctionItem = idToAuctionItem[bidItem.auctionId];
 
-        require(bidItem.bidder == msg.sender, "Only bidder");
+        _checkValidBidEdit(bidItem, auctionItem, priceUSD);
 
-        require(
-            block.timestamp >= auctionItem.startTime &&
-                block.timestamp <= auctionItem.endTime,
-            "Not in auction time"
-        );
-
-        require(bidItem.status == BidStatus.Lived, "Bid canceled");
-        require(
-            priceUSD >
-                (idToBidItem[auctionItem.highestBidId].bidPriceUSD *
-                    (PERCENT_BASIS_POINT + minPriceIncreasePercent)) /
-                    PERCENT_BASIS_POINT,
-            "Price less than min price"
-        );
-
-        FeeManagerStruct.FeeInformation memory feeInfo = FeeManager
+        IDPFeeManager.FeeInformation memory feeInfo = FeeManager
             .getFeeInformation(bidItem.paymentToken);
         require(
             feeInfo.aggregatorV3 != address(0),
@@ -665,7 +663,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         idToBidItem[bidId].bidPriceWithFeeToken = priceWithFeeToken;
         idToBidItem[bidId].reservePriceToken = reservePriceToken;
 
-        idToAuctionItem[auctionId].highestBidId = bidId;
+        idToAuctionItem[bidItem.auctionId].highestBidId = bidId;
 
         emit BidEdited(
             bidId,
@@ -675,6 +673,37 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
             reservePriceToken,
             priceData.oracleRoundId
         );
+    }
+
+    function editBidFiat(
+        uint256 bidId,
+        uint256 priceUSD,
+        bytes memory signature
+    ) external nonReentrant whenNotPaused {
+        BidItem memory bidItem = idToBidItem[bidId];
+        require(!bidItem.isFiat, "Use editBid instead");
+        AuctionItem memory auctionItem = idToAuctionItem[bidItem.auctionId];
+
+        _checkValidBidEdit(bidItem, auctionItem, priceUSD);
+
+        require(
+            signature.verifyEditBidFiatMessage(
+                msg.sender,
+                bidId,
+                bidItem.auctionId,
+                bidItem.tokenId,
+                priceUSD,
+                address(this),
+                address(NFT),
+                _verifier
+            ),
+            "Invalid signature"
+        );
+
+        idToBidItem[bidId].bidPriceUSD = priceUSD;
+        idToAuctionItem[bidItem.auctionId].highestBidId = bidId;
+
+        emit BidEdited(bidId, priceUSD, 0, 0, 0, 0);
     }
 
     function cancelAuction(
@@ -698,13 +727,11 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
 
     function cancelBid(uint256 bidId) external nonReentrant whenNotPaused {
         BidItem memory bidItem = idToBidItem[bidId];
-
+        require(!bidItem.isFiat, "Use cancelBidFiat instead");
         require(bidItem.status == BidStatus.Lived, "Bid closed");
         require(bidItem.bidder == msg.sender, "Only bidder");
 
-        AuctionItem memory auctionItem = idToAuctionItem[
-            tokenToAuctionId[bidItem.tokenId]
-        ];
+        AuctionItem memory auctionItem = idToAuctionItem[bidItem.auctionId];
         require(
             auctionItem.sold || auctionItem.highestBidId != bidId,
             "Can not cancel highest bid"
@@ -723,10 +750,41 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         emit BidCanceled(bidId);
     }
 
-    function reclaimAuction(
-        uint256 tokenId
+    function cancelBidFiat(
+        uint256 bidId,
+        bytes memory signature
     ) external nonReentrant whenNotPaused {
-        uint256 auctionId = tokenToAuctionId[tokenId];
+        BidItem memory bidItem = idToBidItem[bidId];
+        require(bidItem.isFiat, "Use cancelBid instead");
+        require(bidItem.status == BidStatus.Lived, "Bid closed");
+        require(bidItem.bidder == msg.sender, "Only bidder");
+
+        AuctionItem memory auctionItem = idToAuctionItem[bidItem.auctionId];
+        require(
+            auctionItem.sold || auctionItem.highestBidId != bidId,
+            "Can not cancel highest bid"
+        );
+
+        require(
+            signature.verifyCancelBidFiatMessage(
+                msg.sender,
+                bidId,
+                bidItem.auctionId,
+                bidItem.tokenId,
+                address(this),
+                address(NFT),
+                _verifier
+            ),
+            "Invalid signature"
+        );
+
+        idToBidItem[bidId].status = BidStatus.Canceled;
+        emit BidCanceled(bidId);
+    }
+
+    function reclaimAuction(
+        uint256 auctionId
+    ) external nonReentrant whenNotPaused {
         AuctionItem memory auctionItem = idToAuctionItem[auctionId];
 
         require(auctionItem.seller == msg.sender, "Only auction owner");
@@ -737,7 +795,11 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         _itemsSold.increment();
 
         idToAuctionItem[auctionId].sold = true;
-        NFT.transferFrom(address(this), auctionItem.seller, tokenId);
+        NFT.transferFrom(
+            address(this),
+            auctionItem.seller,
+            auctionItem.tokenId
+        );
         emit AuctionReclaimed(auctionId);
     }
 
@@ -766,11 +828,152 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         NFT.transferFrom(_from, _to, tokenId);
     }
 
+    /* ========== INTERNAL FUNCTIONS ========== */
+
+    function _createAuctionItem(AuctionCreateParams memory params) internal {
+        require(params.price > 0, "Price must be at least 1 wei");
+        require(
+            params.endTime > params.startTime &&
+                params.startTime >= block.timestamp,
+            "Invalid time"
+        );
+        _listedTokenIds.add(params.tokenId);
+
+        totalAuctions++;
+        tokenToAuctionId[params.tokenId] = totalAuctions;
+        AuctionItem storage newAuction = idToAuctionItem[totalAuctions];
+
+        newAuction.tokenId = params.tokenId;
+        newAuction.auctionId = totalAuctions;
+        newAuction.seller = payable(msg.sender);
+        newAuction.creatorWallet = payable(params.creatorWallet);
+        newAuction.isCustodianWallet = params.isCustodianWallet;
+        newAuction.royalty = params.royalty;
+        newAuction.startPriceUSD = params.startPriceUSD;
+        newAuction.reservePriceUSD = params.reservePriceUSD;
+        newAuction.price = params.price;
+        newAuction.initialList = params.initialList;
+        newAuction.sold = false;
+        newAuction.startTime = params.startTime;
+        newAuction.endTime = params.endTime;
+        newAuction.beneficiaries = params.beneficiaries;
+        newAuction.percents = params.percents;
+        
+        _approveAddress(params.tokenId);
+        NFT.transferFrom(msg.sender, address(this), params.tokenId);
+
+        emit AuctionItemCreated(
+            totalAuctions,
+            params.tokenId,
+            msg.sender,
+            params.creatorWallet,
+            params.isCustodianWallet,
+            params.royalty,
+            params.startPriceUSD,
+            params.reservePriceUSD,
+            params.price,
+            params.initialList,
+            params.startTime,
+            params.endTime,
+            params.beneficiaries,
+            params.percents
+        );
+    }
+
+    function _checkValidBid(
+        AuctionItem memory auctionItem,
+        uint256 priceUSD
+    ) internal view {
+        require(
+            block.timestamp >= auctionItem.startTime &&
+                block.timestamp <= auctionItem.endTime,
+            "Not in auction time"
+        );
+
+        require(auctionItem.seller != msg.sender, "Seller cannot bid");
+
+        require(
+            priceUSD >= auctionItem.startPriceUSD,
+            "Price lower than start price"
+        );
+
+        require(
+            auctionItem.listBidId.length == 0 ||
+                priceUSD >
+                (idToBidItem[auctionItem.highestBidId].bidPriceUSD *
+                    (PERCENT_BASIS_POINT + minPriceIncreasePercent)) /
+                    PERCENT_BASIS_POINT,
+            "Price less than min price"
+        );
+    }
+
+    function _createBidToken(BidCreateParams memory params) internal {
+        totalBids++;
+        uint256 bidId = totalBids;
+        BidItem memory newBidItem = BidItem(
+            bidId,
+            params.tokenId,
+            params.auctionId,
+            params.bidder,
+            params.paymentToken,
+            params.priceUSD,
+            params.priceToken,
+            params.priceWithFeeToken,
+            params.reservePriceToken,
+            params.oracleRoundId,
+            params.isFiat,
+            BidStatus.Lived
+        );
+
+        idToBidItem[bidId] = newBidItem;
+        idToAuctionItem[params.auctionId].listBidId.push(bidId);
+        idToAuctionItem[params.auctionId].highestBidId = bidId;
+
+        emit BidCreated(
+            bidId,
+            params.tokenId,
+            params.auctionId,
+            params.bidder,
+            params.paymentToken,
+            params.priceUSD,
+            params.priceToken,
+            params.priceWithFeeToken,
+            params.reservePriceToken,
+            params.oracleRoundId,
+            params.isFiat,
+            BidStatus.Lived
+        );
+    }
+
+    function _checkValidBidEdit(
+        BidItem memory bidItem,
+        AuctionItem memory auctionItem,
+        uint256 priceUSD
+    ) internal view {
+        require(bidItem.bidder == msg.sender, "Only bidder");
+
+        require(
+            block.timestamp >= auctionItem.startTime &&
+                block.timestamp <= auctionItem.endTime,
+            "Not in auction time"
+        );
+
+        require(bidItem.status == BidStatus.Lived, "Bid canceled");
+        require(
+            priceUSD >
+                (idToBidItem[auctionItem.highestBidId].bidPriceUSD *
+                    (PERCENT_BASIS_POINT + minPriceIncreasePercent)) /
+                    PERCENT_BASIS_POINT,
+            "Price less than min price"
+        );
+    }
+
     function _approveAddress(uint256 _tokenId) internal {
         NFT.administratorApprove(_tokenId);
     }
 
     /* ========== VIEW FUNCTIONS ========== */
+
     function getItemSold() external view returns (uint256) {
         return _itemsSold.current();
     }

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.4;
 
 import "./libraries/PriceConverter.sol";
-import "./libraries/DPFeeManagerStruct.sol";
 import "./DPNFT.sol";
 import "./interface/IDPFeeManager.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -65,9 +64,9 @@ contract DPFeeManager is Ownable, IDPFeeManager {
 
     function getFeeInformation(
         address paymentMethod
-    ) external view override returns (FeeManagerStruct.FeeInformation memory) {
+    ) external view override returns (FeeInformation memory) {
         return
-            FeeManagerStruct.FeeInformation(
+            FeeInformation(
                 _charity,
                 _web3re,
                 aggregatorV3Address[paymentMethod],
