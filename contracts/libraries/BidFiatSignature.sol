@@ -13,9 +13,9 @@ library BidFiatSignature {
         uint256 tokenId,
         uint256 priceUSD,
         address marketplace,
-        address NFT,
+        address nFT,
         address _verifier
-    ) public view returns (bool) {
+    ) internal view returns (bool) {
         if (signature.length == 0) return false;
         bytes32 dataHash = encodeBidFiatData(
             bidder,
@@ -23,7 +23,7 @@ library BidFiatSignature {
             tokenId,
             priceUSD,
             marketplace,
-            NFT
+            nFT
         );
         bytes32 signHash = ECDSA.toEthSignedMessageHash(dataHash);
         address recovered = ECDSA.recover(signHash, signature);
@@ -36,8 +36,8 @@ library BidFiatSignature {
         uint256 tokenId,
         uint256 priceUSD,
         address marketplace,
-        address NFT
-    ) public view returns (bytes32) {
+        address nFT
+    ) internal view returns (bytes32) {
         uint256 id;
         assembly {
             id := chainid()
@@ -50,7 +50,7 @@ library BidFiatSignature {
                     auctionId,
                     marketplace,
                     tokenId,
-                    NFT,
+                    nFT,
                     priceUSD
                 )
             );
@@ -64,9 +64,9 @@ library BidFiatSignature {
         uint256 tokenId,
         uint256 priceUSD,
         address marketplace,
-        address NFT,
+        address nFT,
         address _verifier
-    ) public view returns (bool) {
+    ) internal view returns (bool) {
         if (signature.length == 0) return false;
         bytes32 dataHash = encodeEditBidFiatData(
             bidder,
@@ -75,7 +75,7 @@ library BidFiatSignature {
             tokenId,
             priceUSD,
             marketplace,
-            NFT
+            nFT
         );
         bytes32 signHash = ECDSA.toEthSignedMessageHash(dataHash);
         address recovered = ECDSA.recover(signHash, signature);
@@ -89,8 +89,8 @@ library BidFiatSignature {
         uint256 tokenId,
         uint256 priceUSD,
         address marketplace,
-        address NFT
-    ) public view returns (bytes32) {
+        address nFT
+    ) internal view returns (bytes32) {
         uint256 id;
         assembly {
             id := chainid()
@@ -104,7 +104,7 @@ library BidFiatSignature {
                     auctionId,
                     marketplace,
                     tokenId,
-                    NFT,
+                    nFT,
                     priceUSD
                 )
             );
@@ -117,9 +117,9 @@ library BidFiatSignature {
         uint256 auctionId,
         uint256 tokenId,
         address marketplace,
-        address NFT,
+        address nFT,
         address _verifier
-    ) public view returns (bool) {
+    ) internal view returns (bool) {
         if (signature.length == 0) return false;
         bytes32 dataHash = encodeCancelBidFiatData(
             bidder,
@@ -127,7 +127,7 @@ library BidFiatSignature {
             auctionId,
             tokenId,
             marketplace,
-            NFT
+            nFT
         );
         bytes32 signHash = ECDSA.toEthSignedMessageHash(dataHash);
         address recovered = ECDSA.recover(signHash, signature);
@@ -140,8 +140,8 @@ library BidFiatSignature {
         uint256 auctionId,
         uint256 tokenId,
         address marketplace,
-        address NFT
-    ) public view returns (bytes32) {
+        address nFT
+    ) internal view returns (bytes32) {
         uint256 id;
         assembly {
             id := chainid()
@@ -155,9 +155,8 @@ library BidFiatSignature {
                     auctionId,
                     marketplace,
                     tokenId,
-                    NFT
+                    nFT
                 )
             );
     }
-
 }

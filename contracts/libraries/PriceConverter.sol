@@ -11,11 +11,11 @@ library PriceConverter {
         uint256 tokenDecimals;
     }
 
-    // We could make this public, but then we'd have to deploy it
+    // We could make this internal, but then we'd have to deploy it
     function getPrice(
         address token,
         address aggregatorV3
-    ) public view returns (PriceData memory) {
+    ) internal view returns (PriceData memory) {
         //Get decimals of token
         uint8 tokenDecimals = 18;
         if (token != address(0)) {
@@ -43,7 +43,7 @@ library PriceConverter {
     function getOrgUsdToken(
         uint256 amount,
         PriceData memory priceData
-    ) public pure returns (uint256) {
+    ) internal pure returns (uint256) {
         uint256 adjustPrice = uint256(priceData.price) * 1e18;
         amount = matchDecimals(amount, priceData.tokenDecimals);
         uint256 usd = amount * 1e18;
@@ -54,7 +54,7 @@ library PriceConverter {
     function getUsdToken(
         uint256 amount,
         PriceData memory priceData
-    ) public pure returns (uint256) {
+    ) internal pure returns (uint256) {
         uint256 adjustPrice = uint256(priceData.price) * 1e18;
         amount = matchDecimals(amount, priceData.tokenDecimals);
         uint256 usd = amount * 1e18;
@@ -66,7 +66,7 @@ library PriceConverter {
     function matchDecimals(
         uint256 amount,
         uint256 tokenDecimals
-    ) public pure returns (uint256) {
+    ) internal pure returns (uint256) {
         if (tokenDecimals > 18) {
             amount = amount * (10 ** (tokenDecimals - 18));
         } else if (tokenDecimals < 18) {

@@ -28,6 +28,7 @@ contract DPNFT is
     mapping(address => bool) public administrators;
     mapping(uint256 => address) public adminApproved;
     mapping(uint256 => Type) private _tokenTypes;
+    mapping(uint256 => address) public creators;
 
     uint256 public totalSeries;
     mapping(uint256 => address) public ownerOfSeries;
@@ -113,16 +114,22 @@ contract DPNFT is
         _approve(_msgSender(), tokenId);
     }
 
+    function _setTokenCreator(uint256 _tokenId, address _creator) internal {
+        creators[_tokenId] = _creator;
+    }
+
     function _mintToken(
         uint256 tokenId,
         address receiver,
         string memory uri,
+        address creator,
         Type typeOfToken
     ) internal {
         _safeMint(receiver, tokenId);
         _setTokenType(tokenId, typeOfToken);
         _setTokenURI(tokenId, uri);
         _setApprovalForAll(receiver, msg.sender, true);
+        _setTokenCreator(tokenId, creator);
     }
 
     /**
@@ -134,6 +141,7 @@ contract DPNFT is
     function mint(
         address receiver,
         string memory uri,
+        address creator,
         Type typeOfToken
     ) public onlyAdministrator returns (uint256) {
         uint256 tokenId = totalSupply() + 1;
@@ -157,7 +165,7 @@ contract DPNFT is
             vaults[tokenId] = vault;
         }
 
-        _mintToken(tokenId, receiver, uri, typeOfToken);
+        _mintToken(tokenId, receiver, uri, creator, typeOfToken);
 
         return tokenId;
     }
@@ -173,6 +181,7 @@ contract DPNFT is
     function mintSeriesToken(
         address receiver,
         string memory uri,
+        address creator,
         uint256 seriesId,
         address caller
     ) public onlyAdministrator returns (uint256) {
@@ -193,7 +202,7 @@ contract DPNFT is
         _series[seriesId].add(tokenId);
         tokenIdToSeries[tokenId] = seriesId;
 
-        _mintToken(tokenId, receiver, uri, Type.Series);
+        _mintToken(tokenId, receiver, uri, creator, Type.Series);
 
         return tokenId;
     }
@@ -207,18 +216,27 @@ contract DPNFT is
     function mintBatch(
         address[] memory receivers,
         string[] memory uris,
+        address[] memory creatorList,
         Type[] memory tokenTypes
     ) public onlyAdministrator returns (uint256[] memory) {
         uint256 length = receivers.length;
 
         require(
-            length > 0 && length == uris.length && length == tokenTypes.length,
+            length > 0 &&
+                length == uris.length &&
+                length == tokenTypes.length &&
+                length == creatorList.length,
             "DPNFT: Invalid input length"
         );
 
         uint256[] memory returnIds = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
-            uint256 tokenId = mint(receivers[i], uris[i], tokenTypes[i]);
+            uint256 tokenId = mint(
+                receivers[i],
+                uris[i],
+                creatorList[i],
+                tokenTypes[i]
+            );
             returnIds[i] = tokenId;
         }
         return returnIds;
@@ -235,13 +253,17 @@ contract DPNFT is
     function mintBatchSeriesToken(
         address[] memory receivers,
         string[] memory uris,
+        address[] memory creatorList,
         uint256[] memory seriesIds,
         address caller
     ) public onlyAdministrator returns (uint256[] memory) {
         uint256 length = receivers.length;
 
         require(
-            length > 0 && length == uris.length && length == seriesIds.length,
+            length > 0 &&
+                length == uris.length &&
+                length == seriesIds.length &&
+                length == creatorList.length,
             "DPNFT: Invalid input length"
         );
 
@@ -250,6 +272,7 @@ contract DPNFT is
             uint256 tokenId = mintSeriesToken(
                 receivers[i],
                 uris[i],
+                creatorList[i],
                 seriesIds[i],
                 caller
             );

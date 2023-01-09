@@ -12,6 +12,8 @@ interface IDPNFT is IERC721, IERC721Enumerable {
         Fragment
     }
 
+    function creators(uint256 tokenId) external view returns (address);
+
     function tokenVaultLogic() external view returns (address);
 
     function administrators(address account) external view returns (bool);
@@ -25,12 +27,14 @@ interface IDPNFT is IERC721, IERC721Enumerable {
     function mint(
         address receiver,
         string memory uri,
+        address creator,
         Type typeOfToken
     ) external returns (uint256);
 
     function mintSeriesToken(
         address receiver,
         string memory uri,
+        address creator,
         uint256 seriesId,
         address caller
     ) external returns (uint256);
@@ -38,12 +42,14 @@ interface IDPNFT is IERC721, IERC721Enumerable {
     function mintBatch(
         address[] memory receivers,
         string[] memory uris,
+        address[] memory creatorList,
         Type[] memory tokenTypes
     ) external returns (uint256[] memory);
 
     function mintBatchSeriesToken(
         address[] memory receivers,
         string[] memory uris,
+        address[] memory creatorList,
         uint256[] memory seriesIds,
         address caller
     ) external returns (uint256[] memory);

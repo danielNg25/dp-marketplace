@@ -3,10 +3,10 @@ import * as fs from "fs";
 import { Signer } from "ethers";
 const ethers = hre.ethers;
 
-import { DPMarketplaceC1__factory } from "../typechain-types";
+import { DPAuction__factory } from "../typechain-types";
 import { DPNFT__factory } from "../typechain-types";
 
-import { DPMarketplaceC1 } from "../typechain-types";
+import { DPAuction } from "../typechain-types";
 import { DPNFT } from "../typechain-types";
 
 async function main() {
@@ -17,8 +17,9 @@ async function main() {
     const web3reAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
     //Loading contracts' factory
     const DPNFT: DPNFT__factory = await ethers.getContractFactory("DPNFT");
-    const Marketplace: DPMarketplaceC1__factory =
-        await ethers.getContractFactory("DPMarketplaceC1");
+    const Marketplace: DPAuction__factory = await ethers.getContractFactory(
+        "DPAuction",
+    );
 
     // Deploy contracts
     console.log(
@@ -40,11 +41,10 @@ async function main() {
     const nft: DPNFT = await DPNFT.deploy();
     await nft.deployed();
 
-    const marketplace: DPMarketplaceC1 = await Marketplace.deploy(
+    const marketplace: DPAuction = await Marketplace.deploy(
         admin,
         charityAddress,
         web3reAddress,
-        nft.address,
     );
     await marketplace.deployed();
 
