@@ -15,7 +15,7 @@ library BidFiatSignature {
         address marketplace,
         address nFT,
         address _verifier
-    ) internal view returns (bool) {
+    ) public view returns (bool) {
         if (signature.length == 0) return false;
         bytes32 dataHash = encodeBidFiatData(
             bidder,
@@ -37,7 +37,7 @@ library BidFiatSignature {
         uint256 priceUSD,
         address marketplace,
         address nFT
-    ) internal view returns (bytes32) {
+    ) public view returns (bytes32) {
         uint256 id;
         assembly {
             id := chainid()
@@ -47,8 +47,8 @@ library BidFiatSignature {
                 abi.encode(
                     id,
                     bidder,
-                    auctionId,
                     marketplace,
+                    auctionId,
                     tokenId,
                     nFT,
                     priceUSD
@@ -66,7 +66,7 @@ library BidFiatSignature {
         address marketplace,
         address nFT,
         address _verifier
-    ) internal view returns (bool) {
+    ) public view returns (bool) {
         if (signature.length == 0) return false;
         bytes32 dataHash = encodeEditBidFiatData(
             bidder,
@@ -90,7 +90,7 @@ library BidFiatSignature {
         uint256 priceUSD,
         address marketplace,
         address nFT
-    ) internal view returns (bytes32) {
+    ) public view returns (bytes32) {
         uint256 id;
         assembly {
             id := chainid()
@@ -100,9 +100,9 @@ library BidFiatSignature {
                 abi.encode(
                     id,
                     bidder,
+                    marketplace,
                     bidId,
                     auctionId,
-                    marketplace,
                     tokenId,
                     nFT,
                     priceUSD
@@ -119,7 +119,7 @@ library BidFiatSignature {
         address marketplace,
         address nFT,
         address _verifier
-    ) internal view returns (bool) {
+    ) public view returns (bool) {
         if (signature.length == 0) return false;
         bytes32 dataHash = encodeCancelBidFiatData(
             bidder,
@@ -141,7 +141,7 @@ library BidFiatSignature {
         uint256 tokenId,
         address marketplace,
         address nFT
-    ) internal view returns (bytes32) {
+    ) public view returns (bytes32) {
         uint256 id;
         assembly {
             id := chainid()
@@ -151,9 +151,9 @@ library BidFiatSignature {
                 abi.encode(
                     id,
                     bidder,
+                    marketplace,
                     bidId,
                     auctionId,
-                    marketplace,
                     tokenId,
                     nFT
                 )

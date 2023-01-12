@@ -46,7 +46,7 @@ interface IDPNFT is IERC721, IERC721Enumerable {
         Type[] memory tokenTypes
     ) external returns (uint256[] memory);
 
-    function mintBatchSeriesToken(
+    function mintBatchSeries(
         address[] memory receivers,
         string[] memory uris,
         address[] memory creatorList,

@@ -152,4 +152,25 @@ describe("FeeManager", () => {
             );
         });
     });
+
+    describe("change aggregator address", () => {
+        it("Should failed - Payment method not set", async () => {
+            await expect(
+                feeManager.changeAggregatorAddress(
+                    mockERC20Token.address,
+                    feeManager.address,
+                ),
+            ).to.revertedWith("Payment method not set");
+        });
+
+        it("Should set successfully", async () => {
+            await feeManager.changeAggregatorAddress(
+                ADDRESS_ZERO,
+                feeManager.address,
+            );
+            expect(
+                (await feeManager.getPaymentMethodDetail(ADDRESS_ZERO))[1],
+            ).to.equal(feeManager.address);
+        });
+    });
 });

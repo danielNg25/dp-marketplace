@@ -75,8 +75,6 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         uint256 reservePriceUSD;
         uint256 startTime;
         uint256 endTime;
-        address[] beneficiaries;
-        uint256[] percents;
     }
 
     struct AuctionCreateParams {
@@ -98,7 +96,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     IDPNFT public NFT;
     IDPFeeManager public FeeManager;
 
-    address private _verifier;
+    address public verifier;
 
     mapping(uint256 => uint256) private tokenToAuctionId;
     mapping(uint256 => AuctionItem) private idToAuctionItem;
@@ -166,11 +164,13 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
     constructor(
         address contractOwner_,
         address nFTAddress_,
-        address dPFeeManager_
+        address dPFeeManager_,
+        address verifier_
     ) {
         FeeManager = IDPFeeManager(dPFeeManager_);
         NFT = IDPNFT(nFTAddress_);
         _transferOwnership(contractOwner_);
+        verifier = verifier_;
     }
 
     function withdrawFunds(
@@ -253,8 +253,8 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                 params.startTime,
                 params.endTime,
                 true,
-                params.beneficiaries,
-                params.percents
+            new address[](0),
+            new uint256[](0)
             )
         );
         return newTokenId;
@@ -400,7 +400,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                 priceUSD,
                 address(this),
                 address(NFT),
-                _verifier
+                verifier
             ),
             "Invalid signature"
         );
@@ -429,10 +429,8 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         require(auctionItem.endTime < block.timestamp, "Auction not end");
         require(!auctionItem.sold, "Auction sold");
 
-        uint256 bidLength = auctionItem.listBidId.length;
-        require(bidLength > 0, "No bid created");
         BidItem memory bidItem = idToBidItem[bidId];
-
+        require(bidItem.auctionId == auctionId, "Bid not in auction");
         require(bidItem.status == BidStatus.Lived, "Bid accepted/cancelled");
 
         if (!bidItem.isFiat) {
@@ -514,7 +512,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                     uint256 sellerAmount = sellerToken;
                     for (
                         uint256 i = 0;
-                        i <= auctionItem.beneficiaries.length;
+                        i < auctionItem.beneficiaries.length;
                         i++
                     ) {
                         uint256 beneficiaryAmount = (sellerToken *
@@ -543,7 +541,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                     uint256 sellerAmount = sellerToken;
                     for (
                         uint256 i = 0;
-                        i <= auctionItem.beneficiaries.length;
+                        i < auctionItem.beneficiaries.length;
                         i++
                     ) {
                         uint256 beneficiaryAmount = (sellerToken *
@@ -579,7 +577,6 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         bytes memory signature
     ) external payable nonReentrant whenNotPaused {
         BidItem memory bidItem = idToBidItem[bidId];
-        require(!bidItem.isFiat, "Use editBidFiat");
         AuctionItem memory auctionItem = idToAuctionItem[bidItem.auctionId];
 
         require(bidItem.bidder == msg.sender, "Only bidder");
@@ -609,7 +606,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                     priceUSD,
                     address(this),
                     address(NFT),
-                    _verifier
+                    verifier
                 ),
                 "Invalid signature"
             );
@@ -734,7 +731,7 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                     bidItem.tokenId,
                     address(this),
                     address(NFT),
-                    _verifier
+                    verifier
                 ),
                 "Invalid signature"
             );
@@ -865,6 +862,8 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
         AuctionItem memory auctionItem,
         uint256 priceUSD
     ) internal view {
+        require(!auctionItem.sold, "Auction sold");
+
         require(
             block.timestamp >= auctionItem.startTime &&
                 block.timestamp <= auctionItem.endTime,

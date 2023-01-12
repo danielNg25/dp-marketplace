@@ -250,7 +250,7 @@ contract DPNFT is
      *
      * @notice caller of this function have to safely check whether sender is owner of the series
      */
-    function mintBatchSeriesToken(
+    function mintBatchSeries(
         address[] memory receivers,
         string[] memory uris,
         address[] memory creatorList,

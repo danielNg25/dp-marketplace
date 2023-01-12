@@ -55,8 +55,6 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         uint256 sellpriceUSD;
         uint256 reservePriceUSD;
         uint256 price;
-        address[] beneficiaries;
-        uint256[] percents;
     }
 
     /* ========== EVENTS ========== */
@@ -150,8 +148,11 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         );
 
         uint256 newTokenId;
-        if (params.tokenType == IDPNFT.Type.HasPhysical) {
+        if (params.tokenType != IDPNFT.Type.HasPhysical) {
             params.reservePriceUSD = 0x0;
+        }
+
+        if (params.tokenType != IDPNFT.Type.Series) {
             newTokenId = NFT.mint(
                 msg.sender,
                 params.tokenURI,
@@ -167,7 +168,6 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
                 msg.sender
             );
         }
-
         createMarketItem(
             newTokenId,
             params.isCustodianWallet,
@@ -176,8 +176,8 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
             params.reservePriceUSD,
             params.price,
             true,
-            params.beneficiaries,
-            params.percents
+            new address[](0),
+            new uint256[](0)
         );
 
         return newTokenId;
@@ -348,12 +348,10 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         );
 
         MarketItem memory item = idToMarketItem[tokenId];
-
         PriceConverter.PriceData memory priceData = PriceConverter.getPrice(
             paymentToken,
             feeInfo.aggregatorV3
         );
-
         uint price2 = item.sellpriceUSD.getUsdToken(priceData);
         if (paymentToken == address(0)) {
             require(msg.value >= price2, "missing asking price");
@@ -372,15 +370,13 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
         uint256 sellerToken = 0;
         uint256 charityTokenTotal = 0;
         uint256 web3reTokenTotal;
-
         if (item.initialList == true) {
             if (item.reservePriceUSD > 0) {
-                if ((item.sellpriceUSD) > (item.reservePriceUSD)) {
+                if (item.sellpriceUSD > item.reservePriceUSD) {
                     uint srUSD = item.sellpriceUSD - item.reservePriceUSD;
                     uint srToken = srUSD.getOrgUsdToken(priceData);
                     charityTokenTotal += (srToken * 80) / 100;
                 }
-
                 uint rUSD = item.reservePriceUSD;
                 uint rToken = rUSD.getOrgUsdToken(priceData);
                 creatorToken = ((rUSD * 65) / 100).getOrgUsdToken(priceData);
@@ -441,7 +437,6 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
                 creatorToken = ((item.sellpriceUSD * item.royalty) / 100)
                     .getOrgUsdToken(priceData);
             }
-
             sellerToken = ((item.sellpriceUSD * 80) / 100).getOrgUsdToken(
                 priceData
             );
@@ -460,7 +455,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
                 payable(feeInfo.web3re).sendValue(web3reTokenTotal);
 
                 uint256 sellerAmount = sellerToken;
-                for (uint256 i = 0; i <= item.beneficiaries.length; i++) {
+                for (uint256 i = 0; i < item.beneficiaries.length; i++) {
                     uint256 beneficiaryAmount = (sellerToken *
                         item.percents[i]) / PERCENT_BASIS_POINT;
                     payable(item.beneficiaries[i]).sendValue(beneficiaryAmount);
@@ -483,7 +478,7 @@ contract DPMarketplaceC1 is Ownable, ReentrancyGuard, Pausable {
                 );
 
                 uint256 sellerAmount = sellerToken;
-                for (uint256 i = 0; i <= item.beneficiaries.length; i++) {
+                for (uint256 i = 0; i < item.beneficiaries.length; i++) {
                     uint256 beneficiaryAmount = (sellerToken *
                         item.percents[i]) / PERCENT_BASIS_POINT;
                     IERC20(paymentToken).safeTransfer(

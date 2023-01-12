@@ -6,7 +6,7 @@
     "scripts": {
         "prepare": "husky install && npx husky add .husky/pre-commit \"npm run format && npm run solhint && npm run lint\"",
         "test": "echo \"Error: no test specified\" && exit 1",
-        "coverage": "npx hardhat coverage --testfiles \"tests/*.ts\" --solcoverjs ./.solcover.js",
+        "coverage": "npx hardhat coverage --testfiles \"tests/*.ts\" --solcoverjs ./.solcoverjs",
         "lint": "eslint . --ext .ts --fix ",
         "format": "prettier --config .prettierrc . --write",
         "solhint": "./node_modules/.bin/solhint -f table contracts/**/*.sol --fix"
