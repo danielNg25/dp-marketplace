@@ -2,24 +2,34 @@ import * as hre from "hardhat";
 import * as fs from "fs";
 import { Signer } from "ethers";
 const ethers = hre.ethers;
+import { Config } from "./config";
 
-import { DPAuction__factory } from "../typechain-types";
-import { DPNFT__factory } from "../typechain-types";
-
-import { DPAuction } from "../typechain-types";
-import { DPNFT } from "../typechain-types";
+import {
+    DPAuction__factory,
+    DPNFT__factory,
+    DPFeeManager__factory,
+    DPFeeManager,
+    DPAuction,
+    DPNFT,
+    DPMarketplaceC1__factory,
+    DPMarketplaceC1,
+} from "../typechain-types";
 
 async function main() {
     //Loading accounts
     const accounts: Signer[] = await ethers.getSigners();
     const admin = await accounts[0].getAddress();
-    const charityAddress = "0xAD34dcA26Bc2b92287b47c3255b4F8A45E56aF46";
-    const web3reAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
     //Loading contracts' factory
+
+    const FeeManager: DPFeeManager__factory = await ethers.getContractFactory(
+        "DPFeeManager",
+    );
     const DPNFT: DPNFT__factory = await ethers.getContractFactory("DPNFT");
-    const Marketplace: DPAuction__factory = await ethers.getContractFactory(
+    const Auction: DPAuction__factory = await ethers.getContractFactory(
         "DPAuction",
     );
+    const Marketplace: DPMarketplaceC1__factory =
+        await ethers.getContractFactory("DPMarketplaceC1");
 
     // Deploy contracts
     console.log(
@@ -38,22 +48,38 @@ async function main() {
 
     // await mockToken.mint(admin, parseEther("10"));
 
+    const feeManager: DPFeeManager = await FeeManager.deploy(
+        Config.charityAddress,
+        Config.web3reAddress,
+    );
+    await feeManager.deployed();
+
     const nft: DPNFT = await DPNFT.deploy();
     await nft.deployed();
 
-    const marketplace: DPAuction = await Marketplace.deploy(
-        admin,
-        charityAddress,
-        web3reAddress,
+    const marketplace: DPMarketplaceC1 = await Marketplace.deploy(
+        Config.owner,
+        nft.address,
+        feeManager.address,
     );
     await marketplace.deployed();
 
-    console.log("Marketplace deployed at: ", marketplace.address);
-    console.log("Controller verify: ", nft.address);
+    const auction: DPAuction = await Auction.deploy(
+        Config.owner,
+        nft.address,
+        feeManager.address,
+        Config.verifierAddress,
+    );
+    await auction.deployed();
+
+    console.log("Marketplace deployed at: ", auction.address);
+    console.log("NFT deployed at: ", nft.address);
 
     const contractAddress = {
         // mockToken: mockToken.address,
+        feeManager: feeManager.address,
         marketplace: marketplace.address,
+        auction: auction.address,
         nft: nft.address,
     };
 
