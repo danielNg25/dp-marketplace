@@ -3,9 +3,7 @@ import { expect } from "chai";
 
 import { ethers } from "hardhat";
 
-import { DPNFT__factory } from "../typechain-types";
-
-import { DPNFT } from "../typechain-types";
+import { DPNFT__factory, DPNFT } from "../typechain-types";
 
 describe("DPNFT", () => {
     const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";

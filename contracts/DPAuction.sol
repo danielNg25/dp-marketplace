@@ -253,8 +253,8 @@ contract DPAuction is Ownable, ReentrancyGuard, Pausable {
                 params.startTime,
                 params.endTime,
                 true,
-            new address[](0),
-            new uint256[](0)
+                new address[](0),
+                new uint256[](0)
             )
         );
         return newTokenId;

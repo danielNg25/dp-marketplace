@@ -1,21 +1,20 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { BigNumber, Signer } from "ethers";
+import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 
-import { DPAuction__factory } from "../typechain-types";
-import { DPNFT__factory } from "../typechain-types";
-import { AggregatorV3Test__factory } from "../typechain-types";
-import { MockERC20Token__factory } from "../typechain-types";
-import { DPFeeManager__factory } from "../typechain-types";
-import { BidFiatSignature__factory } from "../typechain-types";
-
-import { DPFeeManager } from "../typechain-types";
-import { DPAuction } from "../typechain-types";
-import { DPNFT } from "../typechain-types";
-import { AggregatorV3Test } from "../typechain-types";
-import { MockERC20Token } from "../typechain-types";
-import { BidFiatSignature } from "../typechain-types";
+import {
+    DPAuction__factory,
+    DPNFT__factory,
+    AggregatorV3Test__factory,
+    MockERC20Token__factory,
+    DPFeeManager__factory,
+    DPFeeManager,
+    DPAuction,
+    DPNFT,
+    AggregatorV3Test,
+    MockERC20Token,
+} from "../typechain-types";
 
 import { parseEther } from "ethers/lib/utils";
 
@@ -49,7 +48,6 @@ describe("Auction", () => {
     let aggregatorV3Test: AggregatorV3Test;
     let mockERC20Token_24Decimals: MockERC20Token;
     let mockERC20Token_18Decimals: MockERC20Token;
-    let bidSignature: BidFiatSignature;
 
     beforeEach(async () => {
         const accounts: SignerWithAddress[] = await ethers.getSigners();
@@ -64,18 +62,9 @@ describe("Auction", () => {
         user4 = accounts[8];
         verifier = accounts[9];
 
-        const BidFiatSignature: BidFiatSignature__factory =
-            await ethers.getContractFactory("BidFiatSignature");
-        bidSignature = await BidFiatSignature.deploy();
-
         const DPNFT: DPNFT__factory = await ethers.getContractFactory("DPNFT");
         const Auction: DPAuction__factory = await ethers.getContractFactory(
             "DPAuction",
-            {
-                libraries: {
-                    BidFiatSignature: bidSignature.address,
-                },
-            },
         );
         const AggregatorV3Test: AggregatorV3Test__factory =
             await ethers.getContractFactory("AggregatorV3Test");
@@ -1055,7 +1044,7 @@ describe("Auction", () => {
                     value: parseEther("0.11"),
                 });
 
-            let bidItem = await auction.getBidById(1);
+            const bidItem = await auction.getBidById(1);
 
             expect(bidItem.tokenId).to.equal(1);
             expect(bidItem.bidder).to.equal(user1.address);
@@ -1270,7 +1259,7 @@ describe("Auction", () => {
                     parseEther("0.121"),
                 );
 
-            let signature = await signBidFiatData(
+            const signature = await signBidFiatData(
                 verifier,
                 user1.address,
                 1,
@@ -1295,14 +1284,14 @@ describe("Auction", () => {
             );
             expect(await auction.getItemSold()).to.equal(1);
 
-            let bidItem = await auction.getBidById(4);
+            const bidItem = await auction.getBidById(4);
             expect(bidItem.status == 2);
-            let auctionItem = await auction.getAuctionById(1);
+            const auctionItem = await auction.getAuctionById(1);
             expect(auctionItem.sold).to.be.true;
         });
 
         it("Should accept bid fiat successfully - not highest bid", async () => {
-            let signature = await signBidFiatData(
+            const signature = await signBidFiatData(
                 verifier,
                 user1.address,
                 1,
@@ -1335,9 +1324,9 @@ describe("Auction", () => {
             );
             expect(await auction.getItemSold()).to.equal(1);
 
-            let bidItem = await auction.getBidById(3);
+            const bidItem = await auction.getBidById(3);
             expect(bidItem.status == 2);
-            let auctionItem = await auction.getAuctionById(1);
+            const auctionItem = await auction.getAuctionById(1);
             expect(auctionItem.sold).to.be.true;
         });
     });
@@ -2065,7 +2054,7 @@ describe("Auction", () => {
         });
 
         it("Should cancel fiat bid failed - Invalid signature", async () => {
-            let signature = await signBidFiatData(
+            const signature = await signBidFiatData(
                 verifier,
                 user3.address,
                 1,
@@ -2387,7 +2376,7 @@ describe("Auction", () => {
         });
 
         it("Should edit bid fiat failed - invalid signature", async () => {
-            let signature = await signBidFiatData(
+            const signature = await signBidFiatData(
                 verifier,
                 user3.address,
                 1,
@@ -2456,7 +2445,7 @@ describe("Auction", () => {
             await auction
                 .connect(user3)
                 .editBid(3, parseEther("0.5"), signature);
-            let bidItem = await auction.getBidById(3);
+            const bidItem = await auction.getBidById(3);
 
             expect(bidItem.bidPriceUSD).to.equal(parseEther("0.5"));
             expect(bidItem.bidPriceToken).to.equal(0);
@@ -3014,7 +3003,7 @@ describe("Auction", () => {
                 { value: listingPrice },
             );
 
-            let items = await auction.fetchAuctionItems();
+            const items = await auction.fetchAuctionItems();
             expect(items.length).to.equal(3);
             expect(items[0].tokenId).to.equal(1);
             expect(items[0].auctionId).to.equal(2);
@@ -3175,7 +3164,7 @@ const signBidFiatData = async (
     priceUSD: BigNumber,
 ) => {
     const { chainId } = await ethers.provider.getNetwork();
-    let messageHash = encodeBidFiat(
+    const messageHash = encodeBidFiat(
         chainId,
         bidder,
         auctionId,
@@ -3184,7 +3173,7 @@ const signBidFiatData = async (
         nftAddress,
         priceUSD,
     );
-    let messageHashBinary = ethers.utils.arrayify(messageHash);
+    const messageHashBinary = ethers.utils.arrayify(messageHash);
 
     return await signer.signMessage(messageHashBinary);
 };
@@ -3232,7 +3221,7 @@ const signEditBidFiatData = async (
     priceUSD: BigNumber,
 ) => {
     const { chainId } = await ethers.provider.getNetwork();
-    let messageHash = encodeEditBidFiat(
+    const messageHash = encodeEditBidFiat(
         chainId,
         bidder,
         bidId,
@@ -3242,7 +3231,7 @@ const signEditBidFiatData = async (
         nftAddress,
         priceUSD,
     );
-    let messageHashBinary = ethers.utils.arrayify(messageHash);
+    const messageHashBinary = ethers.utils.arrayify(messageHash);
 
     return await signer.signMessage(messageHashBinary);
 };
@@ -3292,7 +3281,7 @@ const signCancelBidFiatData = async (
     nftAddress: string,
 ) => {
     const { chainId } = await ethers.provider.getNetwork();
-    let messageHash = encodeCancelBidFiat(
+    const messageHash = encodeCancelBidFiat(
         chainId,
         bidder,
         bidId,
@@ -3301,7 +3290,7 @@ const signCancelBidFiatData = async (
         tokenId,
         nftAddress,
     );
-    let messageHashBinary = ethers.utils.arrayify(messageHash);
+    const messageHashBinary = ethers.utils.arrayify(messageHash);
 
     return await signer.signMessage(messageHashBinary);
 };

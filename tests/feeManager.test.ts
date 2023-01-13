@@ -4,13 +4,14 @@ import { BigNumber } from "ethers";
 import { parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
-import { DPFeeManager__factory } from "../typechain-types";
-import { MockERC20Token__factory } from "../typechain-types";
-import { AggregatorV3Test__factory } from "../typechain-types";
-
-import { DPFeeManager } from "../typechain-types";
-import { MockERC20Token } from "../typechain-types";
-import { AggregatorV3Test } from "../typechain-types";
+import {
+    DPFeeManager__factory,
+    MockERC20Token__factory,
+    AggregatorV3Test__factory,
+    DPFeeManager,
+    MockERC20Token,
+    AggregatorV3Test,
+} from "../typechain-types";
 
 describe("FeeManager", () => {
     let owner: SignerWithAddress;

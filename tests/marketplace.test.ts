@@ -3,17 +3,18 @@ import { expect } from "chai";
 import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 
-import { DPMarketplaceC1__factory } from "../typechain-types";
-import { DPNFT__factory } from "../typechain-types";
-import { AggregatorV3Test__factory } from "../typechain-types";
-import { MockERC20Token__factory } from "../typechain-types";
-import { DPFeeManager__factory } from "../typechain-types";
-
-import { DPFeeManager } from "../typechain-types";
-import { DPMarketplaceC1 } from "../typechain-types";
-import { DPNFT } from "../typechain-types";
-import { AggregatorV3Test } from "../typechain-types";
-import { MockERC20Token } from "../typechain-types";
+import {
+    DPMarketplaceC1__factory,
+    DPNFT__factory,
+    AggregatorV3Test__factory,
+    MockERC20Token__factory,
+    DPFeeManager__factory,
+    DPFeeManager,
+    DPMarketplaceC1,
+    DPNFT,
+    AggregatorV3Test,
+    MockERC20Token,
+} from "../typechain-types";
 
 import { parseEther } from "ethers/lib/utils";
 

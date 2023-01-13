@@ -8,15 +8,12 @@ import {
     DPNFTVault__factory,
     DPNFT__factory,
     InitializedProxy__factory,
+    DPNFT,
+    DPNFTVault,
+    InitializedProxy,
 } from "../typechain-types";
 
-import { DPNFT } from "../typechain-types";
-import { DPNFTVault } from "../typechain-types";
-import { InitializedProxy } from "../typechain-types";
-
 describe("DPNFT", () => {
-    const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
-
     let owner: SignerWithAddress;
     let user1: SignerWithAddress;
     let user2: SignerWithAddress;
@@ -52,7 +49,7 @@ describe("DPNFT", () => {
         it("Should deploy successfully", async () => {
             const PROXY: InitializedProxy__factory =
                 await ethers.getContractFactory("InitializedProxy");
-            let proxy: InitializedProxy = PROXY.attach(await nft.vaults(1));
+            const proxy: InitializedProxy = PROXY.attach(await nft.vaults(1));
             expect(await proxy.logic()).to.equal(await nft.tokenVaultLogic());
             expect(await vault.token()).to.equal(nft.address);
             expect(await vault.id()).to.equal(1);
